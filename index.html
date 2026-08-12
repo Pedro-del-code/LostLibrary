@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Lost Library</title>
+<meta name="description" content="Lost Library — explore uma biblioteca esquecida, colete itens e desvende seus segredos.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="boot-screen">
+  <div class="boot-inner">
+    <h1 class="boot-title">Lost&nbsp;Library</h1>
+    <p class="boot-sub">um lugar onde os livros lembram o que você esqueceu</p>
+    <div class="boot-bar"><div class="boot-bar-fill" id="boot-fill"></div></div>
+    <p class="boot-hint" id="boot-hint">acendendo as velas…</p>
+  </div>
+</div>
+
+<div id="game-root">
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- vignette / atmosphere overlay -->
+  <div id="vignette"></div>
+  <div id="dust"></div>
+
+  <!-- HUD -->
+  <div id="hud-top">
+    <div class="hud-tag">
+      <span class="hud-tag-title">Lost Library</span>
+      <span class="hud-tag-sub" id="hud-zone">Salão Principal</span>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <!-- INVENTORY -->
+  <div id="inventory" class="hidden" aria-hidden="true">
+    <div class="book">
+      <div class="book-header">
+        <h2>Inventário</h2>
+        <span class="book-header-hint"><kbd>X</kbd> fechar</span>
+      </div>
+      <div class="book-tabs" id="inv-tabs">
+        <button class="tab active" data-cat="armas">⚔ Armas</button>
+        <button class="tab" data-cat="armaduras">🛡 Armaduras</button>
+        <button class="tab" data-cat="itens">📜 Itens</button>
+      </div>
+      <div class="book-body">
+        <div class="item-grid" id="item-grid"></div>
+        <div class="item-detail" id="item-detail">
+          <p class="item-detail-empty">selecione um item para examiná-lo</p>
+        </div>
+      </div>
+      <div class="book-footer">
+        <span><kbd>Z</kbd> examinar</span>
+        <span><kbd>←→</kbd> navegar</span>
+        <span><kbd>C</kbd> / <kbd>X</kbd> fechar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOGUE BOX -->
+  <div id="dialogue" class="hidden">
+    <div class="dialogue-box">
+      <p id="dialogue-text"></p>
+      <span class="dialogue-continue">▸ toque em <kbd>Z</kbd></span>
+    </div>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="mobile-controls">
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div id="joystick-nub"></div>
+      </div>
+    </div>
+
+    <div id="action-buttons">
+      <button id="btn-c" class="mbtn mbtn-c" aria-label="Itens">
+        <span class="mbtn-letter">C</span>
+        <span class="mbtn-label">itens</span>
+      </button>
+      <button id="btn-x" class="mbtn mbtn-x" aria-label="Cancelar">
+        <span class="mbtn-letter">X</span>
+        <span class="mbtn-label">cancelar</span>
+      </button>
+      <button id="btn-z" class="mbtn mbtn-z" aria-label="Agir">
+        <span class="mbtn-letter">Z</span>
+        <span class="mbtn-label">agir</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="desktop-hint">
+    <span><kbd>◂▸▴▾</kbd> / <kbd>WASD</kbd> mover</span>
+    <span><kbd>Z</kbd> agir</span>
+    <span><kbd>X</kbd> cancelar</span>
+    <span><kbd>C</kbd> itens</span>
+  </div>
+
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
