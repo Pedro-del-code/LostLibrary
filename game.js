@@ -23,6 +23,14 @@ async function loadAssets(){
   setBoot(10, 'abrindo os arquivos antigos…');
   const manifestResp = await fetch('assets/sprites/player_manifest.json');
   ASSETS.manifest = await manifestResp.json();
+  // os frames "left"/"right" do atlas saíram invertidos na exportação —
+  // troca as duas entradas para que a personagem olhe para o lado certo.
+  {
+    const d = ASSETS.manifest.directions;
+    const tmp = d.left;
+    d.left = d.right;
+    d.right = tmp;
+  }
   setBoot(45, 'acendendo as velas…');
 
   await new Promise((resolve, reject) => {
