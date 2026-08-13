@@ -382,10 +382,10 @@ const Player = {
   w: 34, h: 20,          // collision box (feet area, small)
   speed: 190,
   dir: 'down',
-  moving: false,
-  animTime: 0,
+  moving: false,          // true only when the player actually displaced this frame
+  animDist: 0,            // accumulated ON-SCREEN pixels actually walked (not blocked)
   frameIdx: 0,
-  frameDur: 0.11,
+  stepPx: 13,             // pixels of real movement per animation frame (tie animation to distance, not time)
 };
 
 function playerFootBox(){
@@ -397,6 +397,7 @@ function rectsOverlap(a,b){
 }
 
 function tryMove(dx, dy){
+  const x0 = Player.x, y0 = Player.y;
   // move X
   if (dx !== 0){
     Player.x += dx;
@@ -421,6 +422,9 @@ function tryMove(dx, dy){
     }
     Player.y = Math.max(120, Math.min(WORLD.h-40, Player.y));
   }
+  // return the distance ACTUALLY covered (0 if fully blocked by a shelf/wall) —
+  // this is what drives the walk animation, so blocked movement never "walks in place".
+  return Math.hypot(Player.x - x0, Player.y - y0);
 }
 
 function getNearbyInteractable(){
@@ -448,8 +452,9 @@ function updatePlayer(dt){
   }
   let mvx = ix, mvy = iy;
   const len = Math.hypot(mvx, mvy);
-  Player.moving = len > 0.05;
-  if (Player.moving){
+  const wantsToMove = len > 0.05;
+  let traveled = 0;
+  if (wantsToMove){
     mvx /= len; mvy /= len;
     // pick dominant direction for sprite
     if (Math.abs(mvx) > Math.abs(mvy)){
@@ -457,21 +462,26 @@ function updatePlayer(dt){
     } else {
       Player.dir = mvy > 0 ? 'down' : 'up';
     }
-    tryMove(mvx * Player.speed * dt, mvy * Player.speed * dt);
+    traveled = tryMove(mvx * Player.speed * dt, mvy * Player.speed * dt);
   }
+  // "moving" (for animation purposes) only counts if the player actually displaced —
+  // walking into a shelf/wall now correctly freezes the walk cycle instead of
+  // animating legs in place (that mismatch is what read as a "moonwalk").
+  Player.moving = traveled > 0.001;
 
-  // animation
+  // animation — advance frames by DISTANCE walked, not by elapsed time, so the
+  // stride always matches how far the character actually moved on screen.
   const dirData = ASSETS.manifest.directions[Player.dir];
   const frames = Player.moving ? dirData.walkFrames : [dirData.idleFrame];
   if (Player.moving){
-    Player.animTime += dt;
-    if (Player.animTime >= Player.frameDur){
-      Player.animTime = 0;
+    Player.animDist += traveled;
+    if (Player.animDist >= Player.stepPx){
+      Player.animDist -= Player.stepPx;
       Player.frameIdx = (Player.frameIdx + 1) % frames.length;
     }
   } else {
     Player.frameIdx = 0;
-    Player.animTime = 0;
+    Player.animDist = 0;
   }
 }
 
