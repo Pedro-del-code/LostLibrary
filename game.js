@@ -639,13 +639,12 @@ function drawInteractPrompt(it, t){
 }
 
 function drawPlayer(){
-  // The atlas's 'right' row was never actually mirrored during art creation —
-  // both 'left' and 'right' face left in the source image. Using it as-is made
-  // the character face away from the direction it was walking, which read as
-  // a "moonwalk". Fix: for 'right', reuse the (correct) 'left' frame data and
-  // flip it horizontally at draw time instead.
-  const mirror = Player.dir === 'right';
-  const dirData = ASSETS.manifest.directions[mirror ? 'left' : Player.dir];
+  // Root cause (verified by measuring face position vs hair mass in the atlas):
+  // the manifest's 'left' and 'right' keys are swapped relative to the actual
+  // art. Frames labeled "left" visually face right, and frames labeled "right"
+  // visually face left. No mirroring is needed — just read from the swapped key.
+  const DIR_KEY = { left: 'right', right: 'left', up: 'up', down: 'down' };
+  const dirData = ASSETS.manifest.directions[DIR_KEY[Player.dir]];
   const frames = Player.moving ? dirData.walkFrames : [dirData.idleFrame];
   const frameIndex = frames[Player.frameIdx % frames.length];
   const f = dirData.frames[frameIndex];
@@ -665,12 +664,6 @@ function drawPlayer(){
   const dy = Player.y - drawH + Player.h/2 + 6;
 
   ctx.save();
-  if (mirror){
-    // flip horizontally around the character's own x position
-    ctx.translate(Player.x, 0);
-    ctx.scale(-1, 1);
-    ctx.translate(-Player.x, 0);
-  }
   ctx.drawImage(
     ASSETS.atlas,
     f.x, f.y, f.w, f.h,
