@@ -456,17 +456,26 @@ function updatePlayer(dt){
   let traveled = 0;
   if (wantsToMove){
     mvx /= len; mvy /= len;
-    // pick dominant direction for sprite
-    if (Math.abs(mvx) > Math.abs(mvy)){
-      Player.dir = mvx > 0 ? 'right' : 'left';
-    } else {
-      Player.dir = mvy > 0 ? 'down' : 'up';
-    }
+    const x0 = Player.x, y0 = Player.y;
     traveled = tryMove(mvx * Player.speed * dt, mvy * Player.speed * dt);
+    // pick sprite direction from the ACTUAL displacement that happened after
+    // collision resolution, not the input intent. Otherwise, e.g. sliding
+    // along a shelf diagonally can zero out the x-axis move while the sprite
+    // still faces/animates left-right — the character visibly moves one way
+    // (say, down) while the legs play a sideways stride: that mismatch is
+    // exactly what read as a "moonwalk".
+    const dxActual = Player.x - x0, dyActual = Player.y - y0;
+    if (Math.abs(dxActual) > 0.001 || Math.abs(dyActual) > 0.001){
+      if (Math.abs(dxActual) > Math.abs(dyActual)){
+        Player.dir = dxActual > 0 ? 'right' : 'left';
+      } else {
+        Player.dir = dyActual > 0 ? 'down' : 'up';
+      }
+    }
   }
   // "moving" (for animation purposes) only counts if the player actually displaced —
   // walking into a shelf/wall now correctly freezes the walk cycle instead of
-  // animating legs in place (that mismatch is what read as a "moonwalk").
+  // animating legs in place.
   Player.moving = traveled > 0.001;
 
   // animation — advance frames by DISTANCE walked, not by elapsed time, so the
