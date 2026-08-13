@@ -112,13 +112,16 @@ const ITEM_DB = {
   manto_poeira: { name:'Manto Empoeirado', cat:'armaduras', icon:'🧥',
     desc:'Cheira a papel velho. Quem o usou por último parece ter desaparecido entre as estantes.' },
   vela_eterna: { name:'Vela Eterna', cat:'itens', icon:'🕯️',
-    desc:'Nunca se apaga. Talvez ilumine caminhos que a biblioteca prefere manter escondidos.' },
+    desc:'Nunca se apaga. Talvez ilumine caminhos que a biblioteca prefere manter escondidos.',
+    thought:'Essa chama não tremula... nem quando eu sopro.' },
   chave_antiga: { name:'Chave Antiga', cat:'itens', icon:'🗝️',
-    desc:'Enferrujada e fria ao toque. Abre... alguma coisa. Você ainda não sabe o quê.' },
+    desc:'Enferrujada e fria ao toque. Abre... alguma coisa. Você ainda não sabe o quê.',
+    thought:'Fria demais pra ter ficado tanto tempo largada aí.' },
   pocao_tinta: { name:'Frasco de Tinta Viva', cat:'itens', icon:'🧪',
     desc:'A tinta se move sozinha dentro do vidro, como se ainda estivesse escrevendo algo.' },
   pergaminho: { name:'Pergaminho Rasgado', cat:'itens', icon:'📜',
-    desc:'Um fragmento de mapa. Falta o resto — talvez em outra estante.' },
+    desc:'Um fragmento de mapa. Falta o resto — talvez em outra estante.',
+    thought:'Um mapa... rasgado bem onde eu mais precisava.' },
 };
 
 // Interaction points placed in the world
@@ -259,11 +262,19 @@ function showToast(title, body){
 }
 
 const dialogueEl = document.getElementById('dialogue');
+const dialogueBoxEl = document.getElementById('dialogue-box');
 const dialogueText = document.getElementById('dialogue-text');
+const dialogueNameEl = document.getElementById('dialogue-name');
 let dialogueState = { open:false, lines:[], idx:0 };
-function openDialogue(lines){
+
+// speaker: 'general' (anyone/anything else — the frame with no portrait) or
+// 'player' (the protagonist's own voice/thoughts — frame with her portrait).
+function openDialogue(lines, speaker = 'general', name = ''){
   dialogueState = { open:true, lines, idx:0 };
   dialogueText.textContent = lines[0];
+  dialogueBoxEl.classList.remove('style-general', 'style-player');
+  dialogueBoxEl.classList.add(speaker === 'player' ? 'style-player' : 'style-general');
+  dialogueNameEl.textContent = name;
   dialogueEl.classList.remove('hidden');
 }
 function advanceDialogue(){
@@ -352,7 +363,7 @@ function onAction(){
   const target = getNearbyInteractable();
   if (!target) return;
   if (target.type === 'npc'){
-    openDialogue(target.lines);
+    openDialogue(target.lines, 'general', 'Presença');
   } else if (target.type === 'item'){
     if (target.found){
       showToast(null, 'já não há nada mais aqui.');
@@ -362,6 +373,10 @@ function onAction(){
     addItemToInventory(target.itemId);
     const def = ITEM_DB[target.itemId];
     showToast('+ item encontrado', `${def.icon} ${def.name}`);
+    if (def.thought){
+      // the protagonist's own reaction — uses her portrait dialogue box
+      setTimeout(() => openDialogue([def.thought], 'player'), 260);
+    }
   }
 }
 function onCancel(){

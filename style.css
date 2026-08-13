@@ -156,20 +156,48 @@ kbd{
   padding:0 16px calc(16px + env(safe-area-inset-bottom));
 }
 .dialogue-box{
-  width:min(720px, 100%);
-  background:linear-gradient(180deg, rgba(28,20,13,.97), rgba(12,9,6,.97));
-  border:1px solid rgba(216,171,92,.4);
-  border-radius:4px;
-  padding:18px 22px 14px;
-  box-shadow:0 10px 40px rgba(0,0,0,.6);
-  margin-bottom:min(96px, 14vh);
+  position:relative;
+  width:min(760px, 100%);
+  margin-bottom:min(72px, 11vh);
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:100% 100%;
+  filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));
+  display:flex; flex-direction:column; justify-content:center;
+  box-sizing:border-box;
+}
+/* general dialogue — anyone/anything other than the protagonist speaking
+   (the ghost, a plaque, a note...). No portrait, full-width text. */
+.dialogue-box.style-general{
+  background-image:url('assets/ui/dialogue_general.png');
+  aspect-ratio: 1473 / 466;
+  padding: 8.5% 4% 7% 4.2%;
+}
+/* the protagonist's own voice / thoughts — frame includes her portrait on
+   the left, so text is indented to sit clear of it. */
+.dialogue-box.style-player{
+  background-image:url('assets/ui/dialogue_player.png');
+  aspect-ratio: 1790 / 524;
+  padding: 9% 4% 6% 29%;
 }
 .dialogue-box p{
-  margin:0 0 10px; font-size:1rem; line-height:1.5; color:var(--parchment);
+  margin:0 0 6px; font-size:clamp(.8rem, 2.6vw, 1rem); line-height:1.45; color:var(--parchment);
 }
+.dialogue-name{
+  display:block;
+  font-family:'Cinzel Decorative', serif;
+  font-size:clamp(.68rem, 2vw, .8rem);
+  color:var(--gold);
+  letter-spacing:.05em;
+  margin-bottom:4px;
+}
+.dialogue-name:empty{ display:none; }
 .dialogue-continue{
-  display:block; text-align:right; font-size:.7rem;
+  display:block; text-align:right; font-size:.65rem;
   letter-spacing:.08em; text-transform:uppercase; color:var(--gold-dim);
+}
+@media (max-width:480px){
+  .dialogue-box.style-player{ padding-left:31%; }
 }
 
 /* ---------------- INVENTORY ("the book") ---------------- */
