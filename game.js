@@ -17,7 +17,25 @@ function setBoot(pct, text){
   if (text) bootHint.textContent = text;
 }
 
-const ASSETS = { atlas: null, manifest: null, tiles: null, tileManifest: null };
+const ASSETS = { atlas: null, manifest: null, tiles: {} };
+
+// Ruins tile set — hand-painted sprites (processed: background removed, trimmed)
+const TILE_FILES = {
+  pisoA: 'piso_pedra_a.png', pisoB: 'piso_pedra_b.png',
+  coluna1: 'coluna_1.png', coluna2: 'coluna_2.png', coluna3: 'coluna_3.png',
+  canteiroBase: 'canteiro_base.png', canteiroGlow: 'canteiro_glow.png',
+  aberturaTeto: 'abertura_teto.png',
+  vinhaA: 'vinha_a.png', vinhaB: 'vinha_b.png',
+  entulho1: 'entulho_1.png', entulho2: 'entulho_2.png',
+  raizes1: 'raizes_1.png', raizes2: 'raizes_2.png',
+  arco: 'arco_passagem.png',
+  savePoint: 'save_point.png',
+  paredeFundo: 'parede_fundo.png',
+  florBush1: 'flor_bush_1.png', florBush2: 'flor_bush_2.png', florBush3: 'flor_bush_3.png',
+  florSmall: 'flor_small.png',
+  florBushWide1: 'flor_bush_wide_1.png', florBushWide2: 'flor_bush_wide_2.png',
+  florScatter: 'flor_scatter.png',
+};
 
 function loadImage(src){
   return new Promise((resolve, reject) => {
@@ -29,37 +47,37 @@ function loadImage(src){
 }
 
 async function loadAssets(){
-  setBoot(10, 'abrindo as passagens antigas…');
-  const manifestResp = await fetch('assets/sprites/player_manifest.json');
+  // cache-busting query param: bumps whenever sprite assets change, so
+  // browsers/CDNs that cached an older build always fetch the new files.
+  const ASSET_VERSION = 'v6';
+  setBoot(10, 'abrindo os arquivos antigos…');
+  const manifestResp = await fetch(`assets/sprites/player_manifest.json?${ASSET_VERSION}`);
   ASSETS.manifest = await manifestResp.json();
-  setBoot(35, 'acendendo as velas…');
+  setBoot(30, 'acendendo as velas…');
 
-  ASSETS.atlas = await loadImage('assets/sprites/player_atlas.png');
-  setBoot(60, 'musgo e pedra…');
+  await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = `assets/sprites/player_atlas.png?${ASSET_VERSION}`;
+    ASSETS.atlas = img;
+  });
+  setBoot(55, 'esculpindo as colunas…');
 
-  const tileManifestResp = await fetch('assets/tiles/tile_manifest.json');
-  ASSETS.tileManifest = await tileManifestResp.json();
-  ASSETS.tiles = await loadImage('assets/tiles/tile_atlas.png');
-  setBoot(90, 'organizando as ruínas…');
+  const tileEntries = Object.entries(TILE_FILES);
+  let loaded = 0;
+  await Promise.all(tileEntries.map(([key, file]) =>
+    loadImage(`assets/tiles/${file}?${ASSET_VERSION}`).then(img => {
+      ASSETS.tiles[key] = img;
+      loaded++;
+      setBoot(55 + Math.round((loaded/tileEntries.length)*30), 'ouvindo os ecos de pedra…');
+    })
+  ));
 
-  await new Promise(r => setTimeout(r, 220));
-  setBoot(100, 'pronto.');
+  setBoot(95, 'quase lá…');
   await new Promise(r => setTimeout(r, 180));
-}
-
-// draw a named tile from the ruins atlas, anchored at bottom-center of (x,y),
-// scaled so its on-screen height equals drawH (aspect ratio preserved).
-function drawTile(name, x, y, drawH, opts){
-  const t = ASSETS.tileManifest[name];
-  if (!t) return;
-  const scale = drawH / t.h;
-  const drawW = t.w * scale;
-  const flip = opts && opts.flip;
-  ctx.save();
-  ctx.translate(x, y);
-  if (flip) ctx.scale(-1, 1);
-  ctx.drawImage(ASSETS.tiles, t.x, t.y, t.w, t.h, -drawW/2, -drawH, drawW, drawH);
-  ctx.restore();
+  setBoot(100, 'pronto.');
+  await new Promise(r => setTimeout(r, 150));
 }
 
 /* ---------------------------------------------------------------------
@@ -84,104 +102,66 @@ window.addEventListener('resize', resize);
 resize();
 
 /* ---------------------------------------------------------------------
-   2. WORLD DEFINITION  (crumbled ruins, Undertale-inspired)
+   2. WORLD DEFINITION  — the chamber where she fell.
+      A small, contained ruin: a hole far above, a bed of flowers that broke
+      her fall, and stone columns older than anything with a name for them.
 --------------------------------------------------------------------- */
-const WORLD = { w: 1900, h: 1250 };
+const WORLD = { w: 900, h: 680 };
+const ROOM_CENTER = { x: WORLD.w/2, y: 430 };
 
-// Solid ruin pieces: {x,y,w,h} is the FOOT/collision box (small, near the
-// base of the piece); `tile` + `drawH` control the sprite drawn above it.
-const SHELVES = []; // kept name so the rest of the engine (collision) needs no changes
-function ruin(tile, x, y, w, h, drawH, extra){
-  return Object.assign({ tile, x, y, w, h, drawH }, extra || {});
-}
-(function buildRuins(){
-  // broken gate at the top — flanking pillars + wall stubs around the entrance
-  SHELVES.push(ruin('pillar_thick', 760, 150, 30, 22, 150));
-  SHELVES.push(ruin('pillar_thick', 1080, 150, 30, 22, 150));
-  SHELVES.push(ruin('wall_corner', 640, 170, 90, 40, 140));
-  SHELVES.push(ruin('wall_corner', 1150, 170, 90, 40, 140, {flip:true}));
-  SHELVES.push(ruin('arch_doorway', 910, 190, 70, 30, 190));
+// scale factor applied to the raw column art (native ~107x299) so it reads as
+// monumental but doesn't overwhelm this small room
+const PILLAR_SCALE = 0.62;
+const PILLAR_SPRITES = { 1:'coluna1', 2:'coluna2', 3:'coluna3' };
 
-  // a loose row of standing pillars, like the ones lining the main path
-  const pillarXs = [260, 430, 1470, 1640];
-  pillarXs.forEach((px,i) => SHELVES.push(ruin('pillar_thin', px, 260 + (i%2)*40, 26, 20, 118)));
-  SHELVES.push(ruin('pillar_thin2', 340, 420, 26, 20, 118));
-  SHELVES.push(ruin('pillar_thin2', 1560, 420, 26, 20, 118));
-
-  // left ruined wall-line (forms a natural aisle down the west side)
-  SHELVES.push(ruin('wall_block', 150, 330, 100, 40, 130));
-  SHELVES.push(ruin('wall_broken3', 150, 520, 70, 60, 120));
-  SHELVES.push(ruin('wall_block', 150, 700, 100, 40, 130));
-  SHELVES.push(ruin('wall_broken1', 170, 880, 44, 50, 96));
-
-  // right ruined wall-line
-  SHELVES.push(ruin('wall_block', WORLD.w-250, 330, 100, 40, 130, {flip:true}));
-  SHELVES.push(ruin('wall_broken4', WORLD.w-280, 520, 50, 55, 110));
-  SHELVES.push(ruin('wall_block', WORLD.w-250, 700, 100, 40, 130, {flip:true}));
-  SHELVES.push(ruin('wall_broken2', WORLD.w-260, 880, 44, 50, 96));
-
-  // scattered broken rooms in the middle of the field
-  SHELVES.push(ruin('wall_corner', 720, 560, 90, 40, 140));
-  SHELVES.push(ruin('wall_broken3', 900, 640, 70, 60, 120));
-  SHELVES.push(ruin('wall_corner', 1120, 560, 90, 40, 140, {flip:true}));
-  SHELVES.push(ruin('rubble_small', 1000, 500, 40, 26, 60));
-
-  // lower field ruins, near the river
-  SHELVES.push(ruin('wall_broken1', 500, 980, 44, 50, 96));
-  SHELVES.push(ruin('wall_broken4', 780, 1010, 50, 55, 110));
-  SHELVES.push(ruin('wall_broken2', 1180, 1000, 44, 50, 96));
-  SHELVES.push(ruin('pillar_thin', 1400, 970, 26, 20, 118));
-})();
-
-// small non-solid landmark near the entrance: a lone pedestal
-const SHRINE = { x: 920, y: 350, tile:'pedestal1', drawH: 70 };
-const VASES = [
-  { x: 700, y: 260, tile:'vase', drawH: 56 },
-  { x: 1140, y: 260, tile:'vase', drawH: 56 },
-];
-const SIGN = { x: 555, y: 470, tile:'sign', drawH: 58 };
-
-// candles double as the ruins' floating lights
-const CANDLES = [
-  { x: 750, y: 300 }, { x: 1090, y: 300 },
-  { x: 260, y: 900 }, { x: WORLD.w-260, y: 900 },
-];
-
-// ground clutter (non-solid, purely decorative) — bushes & flowers
-const CLUTTER = [];
-(function buildClutter(){
-  const bushes = ['bush1','bush2','bush3'];
-  const flowers = ['flower1','flower2','flower3','flower4','flower5','flower6',
-                    'flower_cluster1','flower_cluster2','flower_cluster3'];
-  const spots = [
-    [200,470],[1700,470],[260,650],[1640,650],[520,320],[1360,320],
-    [820,400],[1020,400],[640,760],[1260,760],[380,1050],[1520,1050],
-    [960,900],[300,200],[1600,200],[700,980],[1200,980],[980,620],
-    [180,760],[1720,760],[460,880],[1440,880],[860,720],[1040,720],
+// Columns: {cx,cy} = bottom-center anchor point. Collision is a small footprint
+// box under the base — tall art, but you can walk in front of/behind it (y-sorted).
+const PILLARS = [];
+(function buildPillars(){
+  const defs = [
+    {cx:150, cy:270, variant:1, vine:false},
+    {cx:750, cy:270, variant:2, vine:true},
+    {cx: 95, cy:480, variant:2, vine:false},
+    {cx:805, cy:480, variant:3, vine:true},
+    {cx:230, cy:640, variant:3, vine:false},
+    {cx:670, cy:640, variant:1, vine:false},
   ];
-  spots.forEach((s, i) => {
-    const kind = (i % 3 === 0) ? bushes[i % bushes.length] : flowers[i % flowers.length];
-    CLUTTER.push({ x: s[0], y: s[1], tile: kind, drawH: kind.startsWith('bush') ? 46 : 30 });
+  defs.forEach((d,i) => {
+    const img = null; // resolved at draw time from ASSETS.tiles
+    PILLARS.push({ id:'pillar'+i, ...d });
   });
 })();
 
-// border trees — decorative only, sit just outside/along the walkable area
-const TREES = [];
-(function buildTrees(){
-  const kinds = ['tree_pink1','tree_teal1','tree_teal2','tree_purple','tree_blue','tree_magenta','tree_dead1','tree_dead2'];
-  let k = 0;
-  for (let x = 40; x < WORLD.w-40; x += 190){
-    TREES.push({ x, y: 30, tile: kinds[k % kinds.length], drawH: 150 }); k++;
-    TREES.push({ x, y: WORLD.h-40, tile: kinds[k % kinds.length], drawH: 150 }); k++;
-  }
-  for (let y = 220; y < WORLD.h-160; y += 210){
-    TREES.push({ x: 20, y, tile: kinds[k % kinds.length], drawH: 150 }); k++;
-    TREES.push({ x: WORLD.w-20, y, tile: kinds[k % kinds.length], drawH: 150 }); k++;
-  }
-})();
+// the flower bed that broke her fall — the heart of the room
+const FLOWERBED = { cx: ROOM_CENTER.x, cy: ROOM_CENTER.y, scale: 0.86 };
 
-// river along the south edge, banked with the fenced ruin-stone tile
-const RIVER_Y = WORLD.h - 46;
+// the hole in the ceiling, far above, with a shaft of light connecting it to the flowers
+const CEILING_OPENING = { cx: ROOM_CENTER.x, cy: 128, scale: 0.72 };
+
+// a quiet save point beside the flowers
+const SAVE_POINT = { cx: ROOM_CENTER.x + 165, cy: ROOM_CENTER.y + 25, scale: 0.6 };
+
+// the archway south of the room — the only way further in (more of the ruins
+// arrive in a later update; for now this just marks that the room continues)
+const ARCHWAY = { cx: ROOM_CENTER.x, cy: 655, scale: 0.85 };
+
+// purely decorative scatter
+const RUBBLE = [
+  { cx:230, cy:330, sprite:'entulho1', scale:0.55 },
+  { cx:700, cy:360, sprite:'entulho2', scale:0.6 },
+  { cx:330, cy:600, sprite:'entulho2', scale:0.5 },
+];
+const ROOTS = [
+  { cx:130, cy:590, sprite:'raizes1', scale:0.6 },
+  { cx:770, cy:600, sprite:'raizes2', scale:0.6 },
+];
+const GROUND_FLOWERS = [
+  { cx: ROOM_CENTER.x-150, cy: ROOM_CENTER.y+55, sprite:'florBush1', scale:0.55 },
+  { cx: ROOM_CENTER.x+140, cy: ROOM_CENTER.y+60, sprite:'florBush2', scale:0.55 },
+  { cx: ROOM_CENTER.x-95, cy: ROOM_CENTER.y-70, sprite:'florSmall', scale:0.6 },
+  { cx: ROOM_CENTER.x+95, cy: ROOM_CENTER.y-75, sprite:'florScatter', scale:0.5 },
+  { cx: ROOM_CENTER.x-40, cy: ROOM_CENTER.y+95, sprite:'florBush3', scale:0.5 },
+];
 
 /* ---------------------------------------------------------------------
    3. ITEM DATABASE + INTERACTABLES
@@ -189,50 +169,41 @@ const RIVER_Y = WORLD.h - 46;
 const ITEM_DB = {
   espada_enferrujada: { name:'Espada Enferrujada', cat:'armas', icon:'⚔️',
     desc:'Uma lâmina tomada pela ferrugem. Ainda corta — se você tiver coragem de empunhá-la.' },
-  adaga_bibliotecaria: { name:'Adaga do Bibliotecário', cat:'armas', icon:'🗡️',
-    desc:'Curta e silenciosa. Usada para cortar páginas... ou algo mais.' },
+  adaga_bibliotecaria: { name:'Adaga da Guardiã', cat:'armas', icon:'🗡️',
+    desc:'Curta e silenciosa. Quem a carregava não estava mais aqui quando você chegou.' },
   colete_couro: { name:'Colete de Couro', cat:'armaduras', icon:'🥋',
-    desc:'Gasto pelo tempo, mas ainda protege o suficiente contra o pó e as sombras.' },
+    desc:'Gasto pelo tempo, mas ainda protege o suficiente contra a pedra fria e as sombras.' },
   manto_poeira: { name:'Manto Empoeirado', cat:'armaduras', icon:'🧥',
-    desc:'Cheira a papel velho. Quem o usou por último parece ter desaparecido entre as colunas quebradas.' },
-  vela_eterna: { name:'Vela Eterna', cat:'itens', icon:'🕯️',
+    desc:'Cheira a musgo e pedra antiga. Quem o usou por último parece ter desaparecido entre as colunas.' },
+  vela_eterna: { name:'Chama Perene', cat:'itens', icon:'🕯️',
     desc:'Nunca se apaga. Talvez ilumine caminhos que as ruínas preferem manter escondidos.',
     thought:'Essa chama não tremula... nem quando eu sopro.' },
   chave_antiga: { name:'Chave Antiga', cat:'itens', icon:'🗝️',
     desc:'Enferrujada e fria ao toque. Abre... alguma coisa. Você ainda não sabe o quê.',
     thought:'Fria demais pra ter ficado tanto tempo largada aí.' },
-  pocao_tinta: { name:'Frasco de Tinta Viva', cat:'itens', icon:'🧪',
-    desc:'A tinta se move sozinha dentro do vidro, como se ainda estivesse escrevendo algo.' },
-  pergaminho: { name:'Pergaminho Rasgado', cat:'itens', icon:'📜',
-    desc:'Um fragmento de mapa. Falta o resto — talvez em outra parte das ruínas.',
+  pocao_tinta: { name:'Frasco de Seiva Viva', cat:'itens', icon:'🧪',
+    desc:'Um líquido escuro se move sozinho dentro do vidro, como se ainda estivesse crescendo.' },
+  pergaminho: { name:'Fragmento de Mapa', cat:'itens', icon:'📜',
+    desc:'Um pedaço rasgado de um mapa de pedra. Falta o resto — talvez em outra câmara.',
     thought:'Um mapa... rasgado bem onde eu mais precisava.' },
 };
 
-// Interaction points placed in the world
+// Interaction points placed in the world — few and close together, since
+// this is just the small chamber where she landed.
 const INTERACTABLES = [
-  { id:'ruin_a', x:260, y:290, r:60, type:'item', itemId:'espada_enferrujada',
-    prompt:'entulho de pedra', found:false },
-  { id:'ruin_b', x:640, y:190, r:60, type:'item', itemId:'colete_couro',
-    prompt:'nicho na parede', found:false },
-  { id:'ruin_c', x:1150, y:190, r:60, type:'item', itemId:'vela_eterna',
-    prompt:'nicho na parede', found:false },
-  { id:'ruin_left0', x:150, y:390, r:60, type:'item', itemId:'chave_antiga',
-    prompt:'fresta na muralha', found:false },
-  { id:'ruin_right0', x:WORLD.w-150, y:390, r:60, type:'item', itemId:'adaga_bibliotecaria',
-    prompt:'fresta na muralha', found:false },
-  { id:'ruin_right2', x:WORLD.w-260, y:940, r:60, type:'item', itemId:'pocao_tinta',
-    prompt:'pedras cobertas de musgo', found:false },
-  { id:'ruin_left2', x:540, y:940, r:60, type:'item', itemId:'manto_poeira',
-    prompt:'pedras cobertas de musgo', found:false },
-  { id:'shrine_scroll', x:920, y:350, r:70, type:'item', itemId:'pergaminho',
-    prompt:'pedestal antigo', found:false },
-  { id:'ghost', x:1300, y:650, r:80, type:'npc',
+  { id:'roots_item', x:ROOTS[0].cx, y:ROOTS[0].cy-20, r:65, type:'item', itemId:'chave_antiga',
+    prompt:'raízes retorcidas', found:false },
+  { id:'rubble_item', x:RUBBLE[0].cx, y:RUBBLE[0].cy-10, r:60, type:'item', itemId:'espada_enferrujada',
+    prompt:'monte de escombros', found:false },
+  { id:'flowerbed_item', x:FLOWERBED.cx, y:FLOWERBED.cy-10, r:75, type:'item', itemId:'vela_eterna',
+    prompt:'canteiro de flores', found:false },
+  { id:'ghost', x:ARCHWAY.cx, y:ARCHWAY.cy-60, r:80, type:'npc',
     prompt:'presença silenciosa',
     lines:[
-      'Uma sombra entre as colunas quebradas se vira lentamente para você.',
+      'Uma sombra junto ao arco se vira lentamente para você.',
       '"Ah... um visitante. Faz tanto tempo desde o último."',
-      '"Estas ruínas guardam mais do que pedra. Guardam quem passou por aqui por último."',
-      '"Siga entre as colunas. Talvez encontre o caminho de volta. Ou não."',
+      '"Você caiu bem no meio das flores. Elas amorteceram, dessa vez."',
+      '"Além desse arco, as ruínas continuam. Mas isso... é para depois."',
     ]},
 ];
 
@@ -387,7 +358,7 @@ function renderInventory(){
   itemGridEl.innerHTML = '';
   const list = inventoryState.items[inventoryState.cat];
   if (list.length === 0){
-    itemGridEl.innerHTML = '<div class="item-grid-empty">nada aqui ainda…<br>explore as ruínas.</div>';
+    itemGridEl.innerHTML = '<div class="item-grid-empty">nada aqui ainda…<br>explore a biblioteca.</div>';
   } else {
     list.forEach((itemId, i) => {
       const def = ITEM_DB[itemId];
@@ -481,7 +452,7 @@ function onInventoryToggle(){
    7. PLAYER
 --------------------------------------------------------------------- */
 const Player = {
-  x: WORLD.w/2, y: WORLD.h/2 + 400,
+  x: FLOWERBED.cx, y: FLOWERBED.cy + 25,
   w: 34, h: 20,          // collision box (feet area, small)
   speed: 190,
   dir: 'down',
@@ -499,33 +470,40 @@ function rectsOverlap(a,b){
   return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
 }
 
+// pillars collide only at their base (a small footprint under the tall art) —
+// so the player can pass visually behind/in front of the column, y-sorted.
+function pillarCollisionBox(p){
+  const fw = 42, fh = 34;
+  return { x: p.cx - fw/2, y: p.cy - fh, w: fw, h: fh };
+}
+
 function tryMove(dx, dy){
   const x0 = Player.x, y0 = Player.y;
   // move X
   if (dx !== 0){
     Player.x += dx;
     const box = playerFootBox();
-    for (const s of SHELVES){
-      if (rectsOverlap(box, s)){
+    for (const p of PILLARS){
+      if (rectsOverlap(box, pillarCollisionBox(p))){
         Player.x -= dx;
         break;
       }
     }
-    Player.x = Math.max(30, Math.min(WORLD.w-30, Player.x));
+    Player.x = Math.max(40, Math.min(WORLD.w-40, Player.x));
   }
   // move Y
   if (dy !== 0){
     Player.y += dy;
     const box = playerFootBox();
-    for (const s of SHELVES){
-      if (rectsOverlap(box, s)){
+    for (const p of PILLARS){
+      if (rectsOverlap(box, pillarCollisionBox(p))){
         Player.y -= dy;
         break;
       }
     }
-    Player.y = Math.max(120, Math.min(WORLD.h-40, Player.y));
+    Player.y = Math.max(150, Math.min(WORLD.h-40, Player.y));
   }
-  // return the distance ACTUALLY covered (0 if fully blocked by a shelf/wall) —
+  // return the distance ACTUALLY covered (0 if fully blocked by a pillar/wall) —
   // this is what drives the walk animation, so blocked movement never "walks in place".
   return Math.hypot(Player.x - x0, Player.y - y0);
 }
@@ -563,7 +541,7 @@ function updatePlayer(dt){
     traveled = tryMove(mvx * Player.speed * dt, mvy * Player.speed * dt);
     // pick sprite direction from the ACTUAL displacement that happened after
     // collision resolution, not the input intent. Otherwise, e.g. sliding
-    // along a shelf diagonally can zero out the x-axis move while the sprite
+    // along a pillar diagonally can zero out the x-axis move while the sprite
     // still faces/animates left-right — the character visibly moves one way
     // (say, down) while the legs play a sideways stride: that mismatch is
     // exactly what read as a "moonwalk".
@@ -577,7 +555,7 @@ function updatePlayer(dt){
     }
   }
   // "moving" (for animation purposes) only counts if the player actually displaced —
-  // walking into a shelf/wall now correctly freezes the walk cycle instead of
+  // walking into a pillar/wall now correctly freezes the walk cycle instead of
   // animating legs in place.
   Player.moving = traveled > 0.001;
 
@@ -613,120 +591,126 @@ function updateCamera(){
 /* ---------------------------------------------------------------------
    9. RENDERING
 --------------------------------------------------------------------- */
-function roundRect(x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);
-  ctx.closePath();
-}
+const COLORS = {
+  floorMortar:'rgba(10,7,16,.5)',
+};
 
-// ground tile textures, cycled in a deterministic patchwork
-const GROUND_KINDS = ['ground_purple','ground_magenta','ground_teal','ground_magenta2','ground_teal_pebble','ground_rubble'];
-const GROUND_TILE = 96;
+function tile(key){ return ASSETS.tiles[key]; }
 
-// simple hash so the patchwork looks organic but never changes frame to frame
-function tileHash(gx, gy){
-  const n = (gx*374761393 + gy*668265263) ^ (gx*3266489917);
-  return Math.abs(n) % GROUND_KINDS.length;
-}
-
-// a loose stone path connecting the entrance to the lower field
-function onPath(wx, wy){
-  const cx = WORLD.w/2;
-  if (Math.abs(wx - cx) < 90 && wy > 190 && wy < WORLD.h - 60) return true; // north-south spine
-  if (wy > 560 && wy < 700 && wx > 700 && wx < WORLD.w - 700) return true; // east-west crossing
-  return false;
+// generic sprite draw helper: (cx,cy) is the bottom-center anchor point by
+// default, matching how props sit on the ground.
+function drawSprite(img, cx, cy, scale, anchorCenter){
+  if (!img) return null;
+  const w = img.width*scale, h = img.height*scale;
+  const dx = cx - w/2;
+  const dy = anchorCenter ? cy - h/2 : cy - h;
+  ctx.drawImage(img, dx, dy, w, h);
+  return { dx, dy, w, h };
 }
 
 function drawFloor(){
-  const t0 = ASSETS.tileManifest['ground_purple'];
-  const startGX = 0, startGY = 0;
-  const cols = Math.ceil(WORLD.w / GROUND_TILE) + 1;
-  const rows = Math.ceil(WORLD.h / GROUND_TILE) + 1;
-  for (let gy = 0; gy < rows; gy++){
-    for (let gx = 0; gx < cols; gx++){
-      const wx = gx*GROUND_TILE, wy = gy*GROUND_TILE;
-      const path = onPath(wx+GROUND_TILE/2, wy+GROUND_TILE/2);
-      const kind = path ? 'ground_stone' : GROUND_KINDS[tileHash(gx,gy)];
-      const t = ASSETS.tileManifest[kind];
-      if (!t) continue;
-      ctx.drawImage(ASSETS.tiles, t.x, t.y, t.w, t.h, wx, wy, GROUND_TILE, GROUND_TILE);
+  const a = tile('pisoA'), b = tile('pisoB');
+  if (!a || !b){ ctx.fillStyle = '#1c1728'; ctx.fillRect(0,0,WORLD.w,WORLD.h); return; }
+  const TILE = 84;
+  for (let y=0; y<WORLD.h; y+=TILE){
+    for (let x=0; x<WORLD.w; x+=TILE){
+      const img = ((x/TILE)+(y/TILE))%2===0 ? a : b;
+      ctx.drawImage(img, x, y, TILE, TILE);
     }
   }
-  // river along the south edge, banked with the fenced ruin-stone tile
-  const rt = ASSETS.tileManifest['riverbank_fence'];
-  if (rt){
-    const bw = 120;
-    for (let x = 0; x < WORLD.w; x += bw){
-      ctx.drawImage(ASSETS.tiles, rt.x, rt.y, rt.w, rt.h, x, RIVER_Y, bw+2, WORLD.h - RIVER_Y);
-    }
-  }
-  // soft vignette darkening toward the edges
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = '#0a0614';
-  ctx.fillRect(0,0,WORLD.w,40);
-  ctx.globalAlpha = 1;
+  // soft mortar-line vignette between tiles (very subtle, the art already has texture)
+  ctx.strokeStyle = COLORS.floorMortar;
+  ctx.lineWidth = 1;
+  for (let x=0; x<=WORLD.w; x+=TILE){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD.h); ctx.stroke(); }
+  for (let y=0; y<=WORLD.h; y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD.w,y); ctx.stroke(); }
 }
 
-function drawCandle(c, t){
-  const flicker = 0.7 + Math.sin(t*9 + c.x) * 0.15 + Math.sin(t*23+c.y)*0.08;
-  ctx.save();
-  ctx.translate(c.x, c.y);
-  // holder
-  ctx.fillStyle = '#2b2016';
-  ctx.fillRect(-6, 10, 12, 8);
-  ctx.fillStyle = '#e8dcc0';
-  ctx.fillRect(-3, -6, 6, 18);
-  // glow
-  const grad = ctx.createRadialGradient(0,-10,2, 0,-10, 70*flicker);
-  grad.addColorStop(0, `rgba(255,196,110,${0.55*flicker})`);
-  grad.addColorStop(1, 'rgba(255,196,110,0)');
+function drawBackWall(){
+  const w = tile('paredeFundo');
+  if (!w) return;
+  const stripH = 150;
+  const scale = stripH / w.height;
+  const tileW = w.width * scale;
+  for (let x = -tileW; x < WORLD.w+tileW; x += tileW){
+    ctx.drawImage(w, x, -10, tileW+1, stripH);
+  }
+  // shadow under the wall strip, grounding it into the floor
+  const grad = ctx.createLinearGradient(0, stripH-30, 0, stripH+30);
+  grad.addColorStop(0, 'rgba(0,0,0,.45)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(0,-10,70*flicker,0,Math.PI*2); ctx.fill();
-  // flame
-  ctx.fillStyle = `rgba(255,${180+Math.floor(30*flicker)},90,0.95)`;
+  ctx.fillRect(0, stripH-30, WORLD.w, 60);
+}
+
+function drawCeilingLight(t){
+  // soft vertical shaft connecting the opening above to the flowers below —
+  // drawn UNDER the sprites, like the light beam from the cutscene.
+  const x0 = CEILING_OPENING.cx, y0 = CEILING_OPENING.cy + 20;
+  const x1 = FLOWERBED.cx, y1 = FLOWERBED.cy;
+  const sway = Math.sin(t*0.4) * 14;
+  const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+  grad.addColorStop(0, 'rgba(226,232,255,.30)');
+  grad.addColorStop(1, 'rgba(226,232,255,.03)');
+  ctx.save();
+  ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.ellipse(0,-10,3.2,7*flicker,0,0,Math.PI*2);
+  ctx.moveTo(x0-46+sway*0.3, y0);
+  ctx.lineTo(x0+46+sway*0.3, y0);
+  ctx.lineTo(x1+150+sway, y1);
+  ctx.lineTo(x1-150+sway, y1);
+  ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
-function drawRuinPiece(s){
-  // ground shadow
+function drawCeilingOpening(){
+  drawSprite(tile('aberturaTeto'), CEILING_OPENING.cx, CEILING_OPENING.cy, CEILING_OPENING.scale, true);
+}
+
+function drawPillar(p){
+  const img = tile(PILLAR_SPRITES[p.variant]);
+  if (!img) return;
+  // contact shadow
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,.35)';
   ctx.beginPath();
-  ctx.ellipse(s.x + s.w/2, s.y + s.h, s.w*0.55, s.h*0.4, 0, 0, Math.PI*2);
+  ctx.ellipse(p.cx, p.cy-2, 26, 8, 0, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
-  drawTile(s.tile, s.x + s.w/2, s.y + s.h, s.drawH, { flip: s.flip });
+  drawSprite(img, p.cx, p.cy, PILLAR_SCALE);
+  if (p.vine){
+    const vineImg = tile(p.variant % 2 === 0 ? 'vinhaA' : 'vinhaB');
+    const vw = img.width*PILLAR_SCALE, vh = img.height*PILLAR_SCALE;
+    drawSprite(vineImg, p.cx + vw*0.22, p.cy - vh*0.62, PILLAR_SCALE*0.85);
+  }
 }
 
-function drawTreeDeco(t){
+function drawFlowerbed(){
+  drawSprite(tile('canteiroGlow'), FLOWERBED.cx, FLOWERBED.cy + 30, FLOWERBED.scale);
+}
+
+function drawArchway(){
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath();
-  ctx.ellipse(t.x, t.y+6, 22, 8, 0, 0, Math.PI*2);
+  ctx.ellipse(ARCHWAY.cx, ARCHWAY.cy+4, 60, 12, 0, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
-  drawTile(t.tile, t.x, t.y, t.drawH);
+  drawSprite(tile('arco'), ARCHWAY.cx, ARCHWAY.cy, ARCHWAY.scale);
 }
 
-function drawClutterPiece(c){
-  drawTile(c.tile, c.x, c.y, c.drawH);
-}
+function drawRubble(r){ drawSprite(tile(r.sprite), r.cx, r.cy, r.scale); }
+function drawRoots(r){ drawSprite(tile(r.sprite), r.cx, r.cy, r.scale); }
+function drawGroundFlower(f){ drawSprite(tile(f.sprite), f.cx, f.cy, f.scale); }
 
-function drawLandmark(o){
+function drawSavePoint(t){
+  const img = tile('savePoint');
+  if (!img) return;
+  const pulse = 0.85 + Math.sin(t*2.4)*0.15;
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.beginPath();
-  ctx.ellipse(o.x, o.y+4, 20, 7, 0, 0, Math.PI*2);
-  ctx.fill();
+  ctx.globalAlpha = pulse;
+  drawSprite(img, SAVE_POINT.cx, SAVE_POINT.cy, SAVE_POINT.scale);
   ctx.restore();
-  drawTile(o.tile, o.x, o.y, o.drawH);
 }
 
 function drawInteractPrompt(it, t){
@@ -782,20 +766,25 @@ function render(){
   ctx.translate(-Camera.x, -Camera.y);
 
   drawFloor();
-  CLUTTER.forEach(drawClutterPiece); // ground-level decoration, always beneath everything standing
+  drawBackWall();
+  drawCeilingLight(clock);
 
-  // z-sort: ruin pieces, trees, landmarks, candles and the player all sort by their foot y
+  // z-sort everything that stands on the floor by its ground anchor (y), so the
+  // player correctly passes in front of / behind columns and props.
   const drawables = [];
-  SHELVES.forEach(s => drawables.push({ y: s.y+s.h, draw: () => drawRuinPiece(s) }));
-  TREES.forEach(t => drawables.push({ y: t.y, draw: () => drawTreeDeco(t) }));
-  VASES.forEach(v => drawables.push({ y: v.y, draw: () => drawLandmark(v) }));
-  drawables.push({ y: SHRINE.y, draw: () => drawLandmark(SHRINE) });
-  drawables.push({ y: SIGN.y, draw: () => drawLandmark(SIGN) });
-  CANDLES.forEach(c => drawables.push({ y: c.y+40, draw: () => drawCandle(c, clock) }));
+  PILLARS.forEach(p => drawables.push({ y: p.cy, draw: () => drawPillar(p) }));
+  RUBBLE.forEach(r => drawables.push({ y: r.cy, draw: () => drawRubble(r) }));
+  ROOTS.forEach(r => drawables.push({ y: r.cy, draw: () => drawRoots(r) }));
+  GROUND_FLOWERS.forEach(f => drawables.push({ y: f.cy, draw: () => drawGroundFlower(f) }));
+  drawables.push({ y: FLOWERBED.cy + 55, draw: drawFlowerbed });
+  drawables.push({ y: ARCHWAY.cy, draw: drawArchway });
+  drawables.push({ y: SAVE_POINT.cy, draw: () => drawSavePoint(clock) });
   drawables.push({ y: Player.y, draw: drawPlayer });
 
   drawables.sort((a,b)=> a.y - b.y);
   drawables.forEach(d => d.draw());
+
+  drawCeilingOpening();
 
   INTERACTABLES.forEach(it => drawInteractPrompt(it, clock));
 
@@ -807,11 +796,9 @@ function render(){
 --------------------------------------------------------------------- */
 const zoneEl = document.getElementById('hud-zone');
 function updateZoneLabel(){
-  let label = 'Praça das Colunas';
-  if (Player.x < 400) label = 'Muralha Oeste';
-  else if (Player.x > WORLD.w - 400) label = 'Muralha Leste';
-  else if (Player.y > 560 && Player.y < 760) label = 'Ruínas Centrais';
-  else if (Player.y > WORLD.h - 260) label = 'Margem do Rio';
+  let label = 'A Queda';
+  if (Math.hypot(Player.x-FLOWERBED.cx, Player.y-FLOWERBED.cy) < 130) label = 'Canteiro de Flores';
+  else if (Player.y > ARCHWAY.cy - 90) label = 'O Arco';
   zoneEl.textContent = label;
 }
 
@@ -920,7 +907,7 @@ function enterGameplay(){
     gameLoopStarted = true;
     requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
     setTimeout(() => {
-      showToast('Lost Ruins', 'explore as colunas quebradas e encontre o que foi perdido.');
+      showToast('Lost Library', 'explore as ruínas e encontre o que foi perdido.');
     }, 500);
   }
 }
@@ -932,7 +919,7 @@ function enterGameplay(){
   try{
     await loadAssets();
   } catch(err){
-    bootHint.textContent = 'erro ao carregar os arquivos das ruínas…';
+    bootHint.textContent = 'erro ao carregar os arquivos da biblioteca…';
     console.error(err);
     return;
   }
