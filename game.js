@@ -17,25 +17,49 @@ function setBoot(pct, text){
   if (text) bootHint.textContent = text;
 }
 
-const ASSETS = { atlas: null, manifest: null };
+const ASSETS = { atlas: null, manifest: null, tiles: null, tileManifest: null };
+
+function loadImage(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
 
 async function loadAssets(){
-  setBoot(10, 'abrindo os arquivos antigos…');
+  setBoot(10, 'abrindo as passagens antigas…');
   const manifestResp = await fetch('assets/sprites/player_manifest.json');
   ASSETS.manifest = await manifestResp.json();
-  setBoot(45, 'acendendo as velas…');
+  setBoot(35, 'acendendo as velas…');
 
-  await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = 'assets/sprites/player_atlas.png';
-    ASSETS.atlas = img;
-  });
-  setBoot(85, 'organizando as estantes…');
+  ASSETS.atlas = await loadImage('assets/sprites/player_atlas.png');
+  setBoot(60, 'musgo e pedra…');
+
+  const tileManifestResp = await fetch('assets/tiles/tile_manifest.json');
+  ASSETS.tileManifest = await tileManifestResp.json();
+  ASSETS.tiles = await loadImage('assets/tiles/tile_atlas.png');
+  setBoot(90, 'organizando as ruínas…');
+
   await new Promise(r => setTimeout(r, 220));
   setBoot(100, 'pronto.');
   await new Promise(r => setTimeout(r, 180));
+}
+
+// draw a named tile from the ruins atlas, anchored at bottom-center of (x,y),
+// scaled so its on-screen height equals drawH (aspect ratio preserved).
+function drawTile(name, x, y, drawH, opts){
+  const t = ASSETS.tileManifest[name];
+  if (!t) return;
+  const scale = drawH / t.h;
+  const drawW = t.w * scale;
+  const flip = opts && opts.flip;
+  ctx.save();
+  ctx.translate(x, y);
+  if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(ASSETS.tiles, t.x, t.y, t.w, t.h, -drawW/2, -drawH, drawW, drawH);
+  ctx.restore();
 }
 
 /* ---------------------------------------------------------------------
@@ -60,44 +84,104 @@ window.addEventListener('resize', resize);
 resize();
 
 /* ---------------------------------------------------------------------
-   2. WORLD DEFINITION  (a lost library hall)
+   2. WORLD DEFINITION  (crumbled ruins, Undertale-inspired)
 --------------------------------------------------------------------- */
-const WORLD = { w: 1700, h: 1050 };
+const WORLD = { w: 1900, h: 1250 };
 
-// Bookshelf obstacles: {x,y,w,h}
-const SHELVES = [];
-(function buildShelves(){
-  // top wall shelves
-  for (let i=0;i<6;i++){
-    SHELVES.push({x: 90 + i*250, y: 70, w: 190, h: 70, id:'top'+i});
+// Solid ruin pieces: {x,y,w,h} is the FOOT/collision box (small, near the
+// base of the piece); `tile` + `drawH` control the sprite drawn above it.
+const SHELVES = []; // kept name so the rest of the engine (collision) needs no changes
+function ruin(tile, x, y, w, h, drawH, extra){
+  return Object.assign({ tile, x, y, w, h, drawH }, extra || {});
+}
+(function buildRuins(){
+  // broken gate at the top — flanking pillars + wall stubs around the entrance
+  SHELVES.push(ruin('pillar_thick', 760, 150, 30, 22, 150));
+  SHELVES.push(ruin('pillar_thick', 1080, 150, 30, 22, 150));
+  SHELVES.push(ruin('wall_corner', 640, 170, 90, 40, 140));
+  SHELVES.push(ruin('wall_corner', 1150, 170, 90, 40, 140, {flip:true}));
+  SHELVES.push(ruin('arch_doorway', 910, 190, 70, 30, 190));
+
+  // a loose row of standing pillars, like the ones lining the main path
+  const pillarXs = [260, 430, 1470, 1640];
+  pillarXs.forEach((px,i) => SHELVES.push(ruin('pillar_thin', px, 260 + (i%2)*40, 26, 20, 118)));
+  SHELVES.push(ruin('pillar_thin2', 340, 420, 26, 20, 118));
+  SHELVES.push(ruin('pillar_thin2', 1560, 420, 26, 20, 118));
+
+  // left ruined wall-line (forms a natural aisle down the west side)
+  SHELVES.push(ruin('wall_block', 150, 330, 100, 40, 130));
+  SHELVES.push(ruin('wall_broken3', 150, 520, 70, 60, 120));
+  SHELVES.push(ruin('wall_block', 150, 700, 100, 40, 130));
+  SHELVES.push(ruin('wall_broken1', 170, 880, 44, 50, 96));
+
+  // right ruined wall-line
+  SHELVES.push(ruin('wall_block', WORLD.w-250, 330, 100, 40, 130, {flip:true}));
+  SHELVES.push(ruin('wall_broken4', WORLD.w-280, 520, 50, 55, 110));
+  SHELVES.push(ruin('wall_block', WORLD.w-250, 700, 100, 40, 130, {flip:true}));
+  SHELVES.push(ruin('wall_broken2', WORLD.w-260, 880, 44, 50, 96));
+
+  // scattered broken rooms in the middle of the field
+  SHELVES.push(ruin('wall_corner', 720, 560, 90, 40, 140));
+  SHELVES.push(ruin('wall_broken3', 900, 640, 70, 60, 120));
+  SHELVES.push(ruin('wall_corner', 1120, 560, 90, 40, 140, {flip:true}));
+  SHELVES.push(ruin('rubble_small', 1000, 500, 40, 26, 60));
+
+  // lower field ruins, near the river
+  SHELVES.push(ruin('wall_broken1', 500, 980, 44, 50, 96));
+  SHELVES.push(ruin('wall_broken4', 780, 1010, 50, 55, 110));
+  SHELVES.push(ruin('wall_broken2', 1180, 1000, 44, 50, 96));
+  SHELVES.push(ruin('pillar_thin', 1400, 970, 26, 20, 118));
+})();
+
+// small non-solid landmark near the entrance: a lone pedestal
+const SHRINE = { x: 920, y: 350, tile:'pedestal1', drawH: 70 };
+const VASES = [
+  { x: 700, y: 260, tile:'vase', drawH: 56 },
+  { x: 1140, y: 260, tile:'vase', drawH: 56 },
+];
+const SIGN = { x: 555, y: 470, tile:'sign', drawH: 58 };
+
+// candles double as the ruins' floating lights
+const CANDLES = [
+  { x: 750, y: 300 }, { x: 1090, y: 300 },
+  { x: 260, y: 900 }, { x: WORLD.w-260, y: 900 },
+];
+
+// ground clutter (non-solid, purely decorative) — bushes & flowers
+const CLUTTER = [];
+(function buildClutter(){
+  const bushes = ['bush1','bush2','bush3'];
+  const flowers = ['flower1','flower2','flower3','flower4','flower5','flower6',
+                    'flower_cluster1','flower_cluster2','flower_cluster3'];
+  const spots = [
+    [200,470],[1700,470],[260,650],[1640,650],[520,320],[1360,320],
+    [820,400],[1020,400],[640,760],[1260,760],[380,1050],[1520,1050],
+    [960,900],[300,200],[1600,200],[700,980],[1200,980],[980,620],
+    [180,760],[1720,760],[460,880],[1440,880],[860,720],[1040,720],
+  ];
+  spots.forEach((s, i) => {
+    const kind = (i % 3 === 0) ? bushes[i % bushes.length] : flowers[i % flowers.length];
+    CLUTTER.push({ x: s[0], y: s[1], tile: kind, drawH: kind.startsWith('bush') ? 46 : 30 });
+  });
+})();
+
+// border trees — decorative only, sit just outside/along the walkable area
+const TREES = [];
+(function buildTrees(){
+  const kinds = ['tree_pink1','tree_teal1','tree_teal2','tree_purple','tree_blue','tree_magenta','tree_dead1','tree_dead2'];
+  let k = 0;
+  for (let x = 40; x < WORLD.w-40; x += 190){
+    TREES.push({ x, y: 30, tile: kinds[k % kinds.length], drawH: 150 }); k++;
+    TREES.push({ x, y: WORLD.h-40, tile: kinds[k % kinds.length], drawH: 150 }); k++;
   }
-  // left column of shelves (vertical row, forming aisles)
-  for (let i=0;i<3;i++){
-    SHELVES.push({x: 120, y: 260 + i*220, w: 70, h: 160, id:'left'+i});
-  }
-  // right column
-  for (let i=0;i<3;i++){
-    SHELVES.push({x: WORLD.w-190, y: 260 + i*220, w: 70, h: 160, id:'right'+i});
-  }
-  // center double-row island shelves
-  for (let i=0;i<3;i++){
-    SHELVES.push({x: 560 + i*270, y: 430, w: 160, h: 60, id:'mid'+i});
-    SHELVES.push({x: 560 + i*270, y: 620, w: 160, h: 60, id:'mid2'+i});
+  for (let y = 220; y < WORLD.h-160; y += 210){
+    TREES.push({ x: 20, y, tile: kinds[k % kinds.length], drawH: 150 }); k++;
+    TREES.push({ x: WORLD.w-20, y, tile: kinds[k % kinds.length], drawH: 150 }); k++;
   }
 })();
 
-// Decorative (non-solid) props
-const RUGS = [
-  {x: 700, y: 500, w: 340, h: 190}
-];
-const TABLES = [
-  {x: 760, y: 540, w: 220, h: 90}
-];
-const CANDLES = [
-  {x: 800, y: 545}, {x: 940, y: 545},
-  {x: 200, y: 100}, {x: 1450, y: 100},
-  {x: 200, y: WORLD.h-110}, {x: 1450, y: WORLD.h-110},
-];
+// river along the south edge, banked with the fenced ruin-stone tile
+const RIVER_Y = WORLD.h - 46;
 
 /* ---------------------------------------------------------------------
    3. ITEM DATABASE + INTERACTABLES
@@ -110,9 +194,9 @@ const ITEM_DB = {
   colete_couro: { name:'Colete de Couro', cat:'armaduras', icon:'🥋',
     desc:'Gasto pelo tempo, mas ainda protege o suficiente contra o pó e as sombras.' },
   manto_poeira: { name:'Manto Empoeirado', cat:'armaduras', icon:'🧥',
-    desc:'Cheira a papel velho. Quem o usou por último parece ter desaparecido entre as estantes.' },
+    desc:'Cheira a papel velho. Quem o usou por último parece ter desaparecido entre as colunas quebradas.' },
   vela_eterna: { name:'Vela Eterna', cat:'itens', icon:'🕯️',
-    desc:'Nunca se apaga. Talvez ilumine caminhos que a biblioteca prefere manter escondidos.',
+    desc:'Nunca se apaga. Talvez ilumine caminhos que as ruínas preferem manter escondidos.',
     thought:'Essa chama não tremula... nem quando eu sopro.' },
   chave_antiga: { name:'Chave Antiga', cat:'itens', icon:'🗝️',
     desc:'Enferrujada e fria ao toque. Abre... alguma coisa. Você ainda não sabe o quê.',
@@ -120,35 +204,35 @@ const ITEM_DB = {
   pocao_tinta: { name:'Frasco de Tinta Viva', cat:'itens', icon:'🧪',
     desc:'A tinta se move sozinha dentro do vidro, como se ainda estivesse escrevendo algo.' },
   pergaminho: { name:'Pergaminho Rasgado', cat:'itens', icon:'📜',
-    desc:'Um fragmento de mapa. Falta o resto — talvez em outra estante.',
+    desc:'Um fragmento de mapa. Falta o resto — talvez em outra parte das ruínas.',
     thought:'Um mapa... rasgado bem onde eu mais precisava.' },
 };
 
 // Interaction points placed in the world
 const INTERACTABLES = [
-  { id:'shelf_a', x:185, y:105, r:60, type:'item', itemId:'espada_enferrujada',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_b', x:685, y:105, r:60, type:'item', itemId:'colete_couro',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_c', x:1185, y:105, r:60, type:'item', itemId:'vela_eterna',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_left0', x:155, y:340, r:60, type:'item', itemId:'chave_antiga',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_right0', x:WORLD.w-155, y:340, r:60, type:'item', itemId:'adaga_bibliotecaria',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_right2', x:WORLD.w-155, y:780, r:60, type:'item', itemId:'pocao_tinta',
-    prompt:'estante empoeirada', found:false },
-  { id:'shelf_left2', x:155, y:780, r:60, type:'item', itemId:'manto_poeira',
-    prompt:'estante empoeirada', found:false },
-  { id:'table_scroll', x:870, y:560, r:70, type:'item', itemId:'pergaminho',
-    prompt:'mesa de leitura', found:false },
-  { id:'ghost', x:1300, y:560, r:80, type:'npc',
+  { id:'ruin_a', x:260, y:290, r:60, type:'item', itemId:'espada_enferrujada',
+    prompt:'entulho de pedra', found:false },
+  { id:'ruin_b', x:640, y:190, r:60, type:'item', itemId:'colete_couro',
+    prompt:'nicho na parede', found:false },
+  { id:'ruin_c', x:1150, y:190, r:60, type:'item', itemId:'vela_eterna',
+    prompt:'nicho na parede', found:false },
+  { id:'ruin_left0', x:150, y:390, r:60, type:'item', itemId:'chave_antiga',
+    prompt:'fresta na muralha', found:false },
+  { id:'ruin_right0', x:WORLD.w-150, y:390, r:60, type:'item', itemId:'adaga_bibliotecaria',
+    prompt:'fresta na muralha', found:false },
+  { id:'ruin_right2', x:WORLD.w-260, y:940, r:60, type:'item', itemId:'pocao_tinta',
+    prompt:'pedras cobertas de musgo', found:false },
+  { id:'ruin_left2', x:540, y:940, r:60, type:'item', itemId:'manto_poeira',
+    prompt:'pedras cobertas de musgo', found:false },
+  { id:'shrine_scroll', x:920, y:350, r:70, type:'item', itemId:'pergaminho',
+    prompt:'pedestal antigo', found:false },
+  { id:'ghost', x:1300, y:650, r:80, type:'npc',
     prompt:'presença silenciosa',
     lines:[
-      'Uma sombra entre as estantes se vira lentamente para você.',
+      'Uma sombra entre as colunas quebradas se vira lentamente para você.',
       '"Ah... um visitante. Faz tanto tempo desde o último."',
-      '"Esta biblioteca guarda mais do que livros. Guarda quem os leu por último."',
-      '"Procure entre as estantes. Talvez encontre o caminho de volta. Ou não."',
+      '"Estas ruínas guardam mais do que pedra. Guardam quem passou por aqui por último."',
+      '"Siga entre as colunas. Talvez encontre o caminho de volta. Ou não."',
     ]},
 ];
 
@@ -303,7 +387,7 @@ function renderInventory(){
   itemGridEl.innerHTML = '';
   const list = inventoryState.items[inventoryState.cat];
   if (list.length === 0){
-    itemGridEl.innerHTML = '<div class="item-grid-empty">nada aqui ainda…<br>explore a biblioteca.</div>';
+    itemGridEl.innerHTML = '<div class="item-grid-empty">nada aqui ainda…<br>explore as ruínas.</div>';
   } else {
     list.forEach((itemId, i) => {
       const def = ITEM_DB[itemId];
@@ -397,7 +481,7 @@ function onInventoryToggle(){
    7. PLAYER
 --------------------------------------------------------------------- */
 const Player = {
-  x: WORLD.w/2, y: WORLD.h/2 + 250,
+  x: WORLD.w/2, y: WORLD.h/2 + 400,
   w: 34, h: 20,          // collision box (feet area, small)
   speed: 190,
   dir: 'down',
@@ -529,47 +613,6 @@ function updateCamera(){
 /* ---------------------------------------------------------------------
    9. RENDERING
 --------------------------------------------------------------------- */
-const COLORS = {
-  floorA:'#1b130c', floorB:'#221708', floorPlank:'#150e08',
-  wallTop:'#0d0906',
-  shelfWood:'#2c1c10', shelfWoodLight:'#4a2f18', shelfEdge:'#0e0904',
-  bookColors:['#7f9a72','#a8503b','#8c6a2e','#5c7a8c','#9c7638','#6b4d2c'],
-  rug:'#5c2c28', rugEdge:'#3a1c18',
-  table:'#3a2716',
-};
-
-function drawFloor(){
-  ctx.fillStyle = COLORS.floorA;
-  ctx.fillRect(0,0,WORLD.w,WORLD.h);
-  // plank lines
-  ctx.strokeStyle = COLORS.floorPlank;
-  ctx.lineWidth = 2;
-  for (let x=0; x<WORLD.w; x+=64){
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD.h); ctx.stroke();
-  }
-  for (let y=0; y<WORLD.h; y+=220){
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD.w,y); ctx.stroke();
-  }
-  // subtle alternating tint
-  ctx.globalAlpha = 0.06;
-  ctx.fillStyle = COLORS.floorB;
-  for (let y=0; y<WORLD.h; y+=220){
-    for (let x=0; x<WORLD.w; x+=128){
-      if (((x/64)+(y/220))%2===0) ctx.fillRect(x,y,64,220);
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawRug(r){
-  ctx.fillStyle = COLORS.rugEdge;
-  roundRect(r.x-6, r.y-6, r.w+12, r.h+12, 10); ctx.fill();
-  ctx.fillStyle = COLORS.rug;
-  roundRect(r.x, r.y, r.w, r.h, 8); ctx.fill();
-  ctx.strokeStyle = 'rgba(216,171,92,.25)';
-  ctx.lineWidth = 3;
-  roundRect(r.x+14, r.y+14, r.w-28, r.h-28, 6); ctx.stroke();
-}
 function roundRect(x,y,w,h,r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);
@@ -580,46 +623,52 @@ function roundRect(x,y,w,h,r){
   ctx.closePath();
 }
 
-function drawShelf(s){
-  // shadow
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
-  ctx.fillRect(s.x+4, s.y+s.h-6, s.w, 12);
-  // frame
-  ctx.fillStyle = COLORS.shelfWood;
-  ctx.fillRect(s.x, s.y, s.w, s.h);
-  ctx.fillStyle = COLORS.shelfEdge;
-  ctx.fillRect(s.x, s.y, s.w, 6);
-  ctx.fillRect(s.x, s.y+s.h-6, s.w, 6);
-  // books (vertical stripes)
-  const innerX = s.x+6, innerW = s.w-12, innerY = s.y+8, innerH = s.h-16;
-  let bx = innerX;
-  let i=0;
-  while (bx < innerX+innerW-4){
-    const bw = 8 + ((i*37)%10);
-    if (bx+bw > innerX+innerW) break;
-    ctx.fillStyle = COLORS.bookColors[i % COLORS.bookColors.length];
-    ctx.fillRect(bx, innerY + (i%3), bw, innerH - (i%3)*2);
-    bx += bw + 2;
-    i++;
-  }
-  // glow ring if this shelf has an uncollected item nearby
-  const linked = INTERACTABLES.find(it => it.type==='item' && !it.found &&
-    Math.abs((it.x-30) - s.x) < 40 && Math.abs((it.y) - s.y) < 40);
+// ground tile textures, cycled in a deterministic patchwork
+const GROUND_KINDS = ['ground_purple','ground_magenta','ground_teal','ground_magenta2','ground_teal_pebble','ground_rubble'];
+const GROUND_TILE = 96;
+
+// simple hash so the patchwork looks organic but never changes frame to frame
+function tileHash(gx, gy){
+  const n = (gx*374761393 + gy*668265263) ^ (gx*3266489917);
+  return Math.abs(n) % GROUND_KINDS.length;
 }
 
-function drawTable(t){
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.fillRect(t.x+4, t.y+t.h-8, t.w, 10);
-  ctx.fillStyle = COLORS.table;
-  roundRect(t.x, t.y, t.w, t.h, 6); ctx.fill();
-  ctx.strokeStyle = 'rgba(216,171,92,.2)';
-  ctx.lineWidth = 2;
-  roundRect(t.x, t.y, t.w, t.h, 6); ctx.stroke();
-  // little book on table
-  ctx.fillStyle = COLORS.bookColors[1];
-  ctx.fillRect(t.x + t.w/2 - 22, t.y + 18, 30, 20);
-  ctx.fillStyle = COLORS.bookColors[3];
-  ctx.fillRect(t.x + t.w/2 - 4, t.y + 22, 26, 18);
+// a loose stone path connecting the entrance to the lower field
+function onPath(wx, wy){
+  const cx = WORLD.w/2;
+  if (Math.abs(wx - cx) < 90 && wy > 190 && wy < WORLD.h - 60) return true; // north-south spine
+  if (wy > 560 && wy < 700 && wx > 700 && wx < WORLD.w - 700) return true; // east-west crossing
+  return false;
+}
+
+function drawFloor(){
+  const t0 = ASSETS.tileManifest['ground_purple'];
+  const startGX = 0, startGY = 0;
+  const cols = Math.ceil(WORLD.w / GROUND_TILE) + 1;
+  const rows = Math.ceil(WORLD.h / GROUND_TILE) + 1;
+  for (let gy = 0; gy < rows; gy++){
+    for (let gx = 0; gx < cols; gx++){
+      const wx = gx*GROUND_TILE, wy = gy*GROUND_TILE;
+      const path = onPath(wx+GROUND_TILE/2, wy+GROUND_TILE/2);
+      const kind = path ? 'ground_stone' : GROUND_KINDS[tileHash(gx,gy)];
+      const t = ASSETS.tileManifest[kind];
+      if (!t) continue;
+      ctx.drawImage(ASSETS.tiles, t.x, t.y, t.w, t.h, wx, wy, GROUND_TILE, GROUND_TILE);
+    }
+  }
+  // river along the south edge, banked with the fenced ruin-stone tile
+  const rt = ASSETS.tileManifest['riverbank_fence'];
+  if (rt){
+    const bw = 120;
+    for (let x = 0; x < WORLD.w; x += bw){
+      ctx.drawImage(ASSETS.tiles, rt.x, rt.y, rt.w, rt.h, x, RIVER_Y, bw+2, WORLD.h - RIVER_Y);
+    }
+  }
+  // soft vignette darkening toward the edges
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#0a0614';
+  ctx.fillRect(0,0,WORLD.w,40);
+  ctx.globalAlpha = 1;
 }
 
 function drawCandle(c, t){
@@ -643,6 +692,41 @@ function drawCandle(c, t){
   ctx.ellipse(0,-10,3.2,7*flicker,0,0,Math.PI*2);
   ctx.fill();
   ctx.restore();
+}
+
+function drawRuinPiece(s){
+  // ground shadow
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath();
+  ctx.ellipse(s.x + s.w/2, s.y + s.h, s.w*0.55, s.h*0.4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  drawTile(s.tile, s.x + s.w/2, s.y + s.h, s.drawH, { flip: s.flip });
+}
+
+function drawTreeDeco(t){
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath();
+  ctx.ellipse(t.x, t.y+6, 22, 8, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  drawTile(t.tile, t.x, t.y, t.drawH);
+}
+
+function drawClutterPiece(c){
+  drawTile(c.tile, c.x, c.y, c.drawH);
+}
+
+function drawLandmark(o){
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath();
+  ctx.ellipse(o.x, o.y+4, 20, 7, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  drawTile(o.tile, o.x, o.y, o.drawH);
 }
 
 function drawInteractPrompt(it, t){
@@ -698,12 +782,15 @@ function render(){
   ctx.translate(-Camera.x, -Camera.y);
 
   drawFloor();
-  RUGS.forEach(drawRug);
-  TABLES.forEach(drawTable);
+  CLUTTER.forEach(drawClutterPiece); // ground-level decoration, always beneath everything standing
 
-  // z-sort: shelves (back), then interact prompts, candles, player, by y for simple depth
+  // z-sort: ruin pieces, trees, landmarks, candles and the player all sort by their foot y
   const drawables = [];
-  SHELVES.forEach(s => drawables.push({ y: s.y+s.h, draw: () => drawShelf(s) }));
+  SHELVES.forEach(s => drawables.push({ y: s.y+s.h, draw: () => drawRuinPiece(s) }));
+  TREES.forEach(t => drawables.push({ y: t.y, draw: () => drawTreeDeco(t) }));
+  VASES.forEach(v => drawables.push({ y: v.y, draw: () => drawLandmark(v) }));
+  drawables.push({ y: SHRINE.y, draw: () => drawLandmark(SHRINE) });
+  drawables.push({ y: SIGN.y, draw: () => drawLandmark(SIGN) });
   CANDLES.forEach(c => drawables.push({ y: c.y+40, draw: () => drawCandle(c, clock) }));
   drawables.push({ y: Player.y, draw: drawPlayer });
 
@@ -720,10 +807,11 @@ function render(){
 --------------------------------------------------------------------- */
 const zoneEl = document.getElementById('hud-zone');
 function updateZoneLabel(){
-  let label = 'Salão Principal';
-  if (Player.x < 400) label = 'Ala Oeste';
-  else if (Player.x > WORLD.w - 400) label = 'Ala Leste';
-  else if (Player.y > 480 && Player.y < 700) label = 'Sala de Leitura';
+  let label = 'Praça das Colunas';
+  if (Player.x < 400) label = 'Muralha Oeste';
+  else if (Player.x > WORLD.w - 400) label = 'Muralha Leste';
+  else if (Player.y > 560 && Player.y < 760) label = 'Ruínas Centrais';
+  else if (Player.y > WORLD.h - 260) label = 'Margem do Rio';
   zoneEl.textContent = label;
 }
 
@@ -832,7 +920,7 @@ function enterGameplay(){
     gameLoopStarted = true;
     requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
     setTimeout(() => {
-      showToast('Lost Library', 'explore as estantes e encontre o que foi perdido.');
+      showToast('Lost Ruins', 'explore as colunas quebradas e encontre o que foi perdido.');
     }, 500);
   }
 }
@@ -844,7 +932,7 @@ function enterGameplay(){
   try{
     await loadAssets();
   } catch(err){
-    bootHint.textContent = 'erro ao carregar os arquivos da biblioteca…';
+    bootHint.textContent = 'erro ao carregar os arquivos das ruínas…';
     console.error(err);
     return;
   }
