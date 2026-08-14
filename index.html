@@ -22,7 +22,51 @@
   </div>
 </div>
 
-<div id="game-root">
+<!-- CHAPTER SELECT (Deltarune-style) -->
+<div id="chapter-select" class="hidden">
+  <div class="cs-stars"></div>
+  <img class="cs-logo" src="assets/ui/logo.png" alt="Lost Library">
+  <div class="cs-chapters">
+    <div class="cs-chapter cs-locked" aria-hidden="true">
+      <div class="cs-chapter-inner">
+        <span class="cs-chapter-number">??</span>
+        <span class="cs-chapter-name">???</span>
+      </div>
+    </div>
+    <button class="cs-chapter cs-active" id="cs-chapter-1" type="button">
+      <div class="cs-chapter-inner">
+        <span class="cs-chapter-number">CAPÍTULO 1</span>
+        <span class="cs-chapter-name">Um reino?</span>
+      </div>
+    </button>
+    <div class="cs-chapter cs-locked" aria-hidden="true">
+      <div class="cs-chapter-inner">
+        <span class="cs-chapter-number">??</span>
+        <span class="cs-chapter-name">???</span>
+      </div>
+    </div>
+  </div>
+  <p class="cs-hint"><kbd>Z</kbd> ou toque para começar</p>
+</div>
+
+<!-- CHAPTER TITLE CARD (brief transition) -->
+<div id="chapter-title-card" class="hidden">
+  <span class="ctc-number">CAPÍTULO 1</span>
+  <span class="ctc-name">Um reino?</span>
+</div>
+
+<!-- OPENING CUTSCENE -->
+<div id="cutscene" class="hidden">
+  <img class="cutscene-bg" src="assets/ui/intro_scene.jpg" alt="">
+  <div class="cutscene-vignette"></div>
+  <button class="cutscene-skip-btn" id="cutscene-skip-btn" type="button">pular ▸▸</button>
+  <div class="cutscene-textbox">
+    <p id="cutscene-text"></p>
+    <span class="cutscene-continue">▸ toque em <kbd>Z</kbd> <span class="cutscene-skip">(<kbd>X</kbd> pula)</span></span>
+  </div>
+</div>
+
+<div id="game-root" class="hidden">
 
   <canvas id="game-canvas"></canvas>
 

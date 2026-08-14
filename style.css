@@ -73,6 +73,178 @@ kbd{
 }
 .boot-hint{ margin-top:14px; font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:var(--parchment-dim); opacity:.7; }
 
+/* ---------------- CHAPTER SELECT (Deltarune-style) ---------------- */
+#chapter-select{
+  position:fixed; inset:0; z-index:150;
+  background:radial-gradient(ellipse at 50% 35%, #17102a 0%, #070510 65%, #030208 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:clamp(24px, 5vh, 56px);
+  padding:24px;
+  transition:opacity .6s ease;
+}
+#chapter-select.fade-out{ opacity:0; pointer-events:none; }
+.cs-stars{
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 20%, #fff, transparent),
+    radial-gradient(1px 1px at 25% 65%, #cdb6ff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 15%, #fff, transparent),
+    radial-gradient(1px 1px at 60% 80%, #9fd0ff, transparent),
+    radial-gradient(1.5px 1.5px at 75% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 88% 60%, #cdb6ff, transparent),
+    radial-gradient(1.5px 1.5px at 95% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 15% 90%, #9fd0ff, transparent),
+    radial-gradient(1.5px 1.5px at 50% 50%, #fff, transparent);
+  animation:cs-twinkle 3.6s ease-in-out infinite alternate;
+}
+@keyframes cs-twinkle{ from{ opacity:.5; } to{ opacity:1; } }
+.cs-logo{
+  width:min(520px, 78vw);
+  filter:drop-shadow(0 0 28px rgba(147,112,219,.45)) drop-shadow(0 4px 12px rgba(0,0,0,.6));
+  animation:cs-float 5s ease-in-out infinite;
+}
+@keyframes cs-float{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
+.cs-chapters{
+  display:flex; align-items:center; justify-content:center;
+  gap:clamp(10px, 3vw, 28px);
+}
+.cs-chapter{
+  font-family:'Spectral', serif;
+  border:none; cursor:default; padding:0;
+  background:transparent;
+}
+.cs-chapter-inner{
+  width:clamp(120px, 28vw, 190px);
+  aspect-ratio:3/4;
+  border-radius:8px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; text-align:center; padding:12px;
+}
+.cs-chapter.cs-locked{
+  filter:grayscale(1);
+  opacity:.4;
+}
+.cs-chapter.cs-locked .cs-chapter-inner{
+  border:2px dashed rgba(216,171,92,.3);
+  background:rgba(255,255,255,.02);
+}
+.cs-chapter.cs-locked .cs-chapter-number{ font-size:.7rem; color:var(--parchment-dim); letter-spacing:.1em; }
+.cs-chapter.cs-locked .cs-chapter-name{ font-size:1.4rem; color:var(--parchment-dim); }
+.cs-chapter.cs-active{
+  cursor:pointer;
+  transform:scale(1.12);
+  transition:transform .2s ease, filter .2s ease;
+}
+.cs-chapter.cs-active:hover, .cs-chapter.cs-active:focus-visible{
+  transform:scale(1.18);
+  filter:brightness(1.15);
+}
+.cs-chapter.cs-active .cs-chapter-inner{
+  background-image:url('assets/ui/dialogue_general.png');
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  box-shadow:0 0 30px rgba(216,171,92,.35);
+}
+.cs-chapter.cs-active .cs-chapter-number{
+  font-family:'Cinzel Decorative', serif;
+  font-size:clamp(.7rem, 2.4vw, .85rem);
+  color:var(--gold); letter-spacing:.06em;
+}
+.cs-chapter.cs-active .cs-chapter-name{
+  font-size:clamp(1.1rem, 4vw, 1.5rem);
+  color:var(--parchment);
+}
+.cs-hint{
+  font-family:'JetBrains Mono', monospace;
+  font-size:.72rem; letter-spacing:.06em;
+  color:var(--parchment-dim);
+  animation:cs-pulse 1.8s ease-in-out infinite;
+}
+@keyframes cs-pulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+
+/* ---------------- CHAPTER TITLE CARD ---------------- */
+#chapter-title-card{
+  position:fixed; inset:0; z-index:160;
+  background:#020103;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px;
+  transition:opacity .5s ease;
+}
+#chapter-title-card.fade-out{ opacity:0; }
+.ctc-number{
+  font-family:'JetBrains Mono', monospace;
+  font-size:clamp(.8rem, 2.6vw, 1rem);
+  letter-spacing:.25em; text-transform:uppercase;
+  color:var(--gold-dim);
+  opacity:0;
+  animation:ctc-in .7s ease forwards;
+}
+.ctc-name{
+  font-family:'Cinzel Decorative', serif;
+  font-size:clamp(1.8rem, 7vw, 3.2rem);
+  color:var(--gold);
+  text-shadow:0 0 30px rgba(216,171,92,.4);
+  opacity:0;
+  animation:ctc-in .8s ease .35s forwards;
+}
+@keyframes ctc-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+
+/* ---------------- OPENING CUTSCENE ---------------- */
+#cutscene{
+  position:fixed; inset:0; z-index:140;
+  background:#000;
+  overflow:hidden;
+  transition:opacity .7s ease;
+}
+#cutscene.fade-out{ opacity:0; }
+.cutscene-bg{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover; object-position:center 30%;
+  animation:cutscene-zoom 14s ease-out forwards;
+}
+@keyframes cutscene-zoom{ from{ transform:scale(1.08); } to{ transform:scale(1); } }
+.cutscene-vignette{
+  position:absolute; inset:0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 20%, transparent 60%, rgba(0,0,0,.85) 100%),
+    radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0,0,0,.4) 100%);
+}
+.cutscene-textbox{
+  position:absolute; left:0; right:0; bottom:0;
+  display:flex; justify-content:center;
+  padding:0 16px calc(20px + env(safe-area-inset-bottom));
+}
+.cutscene-textbox p{
+  width:min(720px, 100%);
+  margin:0 auto;
+  background:linear-gradient(180deg, rgba(6,4,2,.94), rgba(2,1,1,.97));
+  border:1px solid rgba(216,171,92,.4);
+  border-radius:4px;
+  padding:18px 22px 14px;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);
+  font-size:1rem; line-height:1.55; color:var(--parchment);
+  min-height:1.5em;
+}
+.cutscene-continue{
+  position:absolute; right:calc(16px + max(0px, (100% - 720px)/2)); bottom:calc(20px + env(safe-area-inset-bottom) + 8px);
+  font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--gold-dim);
+  pointer-events:none;
+}
+.cutscene-skip{ opacity:.6; margin-left:6px; }
+.cutscene-skip-btn{
+  position:absolute; top:calc(16px + env(safe-area-inset-top)); right:calc(16px + env(safe-area-inset-right));
+  z-index:2;
+  font-family:'JetBrains Mono', monospace; font-size:.7rem; letter-spacing:.05em;
+  color:var(--parchment-dim);
+  background:rgba(0,0,0,.4); border:1px solid rgba(216,171,92,.3); border-radius:20px;
+  padding:7px 14px; cursor:pointer;
+}
+.cutscene-skip-btn:active{ background:rgba(216,171,92,.2); color:var(--gold); }
+@media (max-width:760px){
+  .cutscene-continue{ right:24px; }
+}
+
 /* ---------------- GAME ROOT ---------------- */
 #game-root{
   position:fixed; inset:0; overflow:hidden;

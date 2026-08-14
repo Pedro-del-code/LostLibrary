@@ -357,6 +357,7 @@ function closeInventory(){
    6. ACTION / CANCEL / INVENTORY HANDLERS  (Z / X / C)
 --------------------------------------------------------------------- */
 function onAction(){
+  if (appState !== 'playing'){ handlePreGameAction(); return; }
   if (dialogueState.open){ advanceDialogue(); return; }
   if (inventoryState.open){ return; } // selection already shows detail on tap
   // try interact with nearest interactable in range
@@ -380,10 +381,13 @@ function onAction(){
   }
 }
 function onCancel(){
+  if (appState === 'cutscene'){ skipCutscene(); return; }
+  if (appState !== 'playing') return;
   if (dialogueState.open){ closeDialogue(); return; }
   if (inventoryState.open){ closeInventory(); return; }
 }
 function onInventoryToggle(){
+  if (appState !== 'playing') return;
   if (dialogueState.open) return;
   if (inventoryState.open) closeInventory();
   else openInventory();
@@ -741,6 +745,99 @@ function loop(t){
 }
 
 /* ---------------------------------------------------------------------
+   11b. INTRO FLOW — chapter select → title card → cutscene → gameplay
+--------------------------------------------------------------------- */
+let appState = 'boot'; // 'boot' | 'chapterSelect' | 'titleCard' | 'cutscene' | 'playing'
+let gameLoopStarted = false;
+
+const chapterSelectEl = document.getElementById('chapter-select');
+const chapterTitleCardEl = document.getElementById('chapter-title-card');
+const cutsceneEl = document.getElementById('cutscene');
+const cutsceneTextEl = document.getElementById('cutscene-text');
+const csChapter1Btn = document.getElementById('cs-chapter-1');
+
+const CUTSCENE_LINES = [
+  'Você não lembra de ter caído.',
+  'Só o silêncio, o cheiro de pedra molhada... e uma luz, muito lá em cima, girando devagar sobre as ruínas.',
+  'Quando os olhos se abrem, já é tarde demais para lembrar como chegou aqui.',
+  'À sua frente, entre colunas quebradas, alguma coisa parece esperar — como se já soubesse que você viria.',
+];
+let cutsceneIdx = 0;
+
+function handlePreGameAction(){
+  if (appState === 'chapterSelect'){ confirmChapterSelect(); return; }
+  if (appState === 'cutscene'){ advanceCutscene(); return; }
+  // 'titleCard' and 'boot' ignore input — title card advances on its own
+}
+
+function enterChapterSelect(){
+  appState = 'chapterSelect';
+  chapterSelectEl.classList.remove('hidden');
+}
+function confirmChapterSelect(){
+  if (appState !== 'chapterSelect') return;
+  appState = 'titleCard';
+  chapterSelectEl.classList.add('fade-out');
+  setTimeout(() => chapterSelectEl.classList.add('hidden'), 650);
+  chapterTitleCardEl.classList.remove('hidden');
+  setTimeout(() => {
+    chapterTitleCardEl.classList.add('fade-out');
+    setTimeout(() => {
+      chapterTitleCardEl.classList.add('hidden');
+      startCutscene();
+    }, 550);
+  }, 2600);
+}
+csChapter1Btn.addEventListener('click', confirmChapterSelect);
+
+// tap anywhere on the cutscene to advance (mobile has no visible Z button
+// at this stage, since #mobile-controls lives inside the still-hidden
+// #game-root) — this mirrors how Z behaves during the cutscene.
+cutsceneEl.addEventListener('click', (e) => {
+  if (e.target.closest('#cutscene-skip-btn')) return; // skip button handles itself
+  advanceCutscene();
+});
+document.getElementById('cutscene-skip-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  skipCutscene();
+});
+
+function startCutscene(){
+  appState = 'cutscene';
+  cutsceneIdx = 0;
+  cutsceneTextEl.textContent = CUTSCENE_LINES[0];
+  cutsceneEl.classList.remove('hidden');
+}
+function advanceCutscene(){
+  cutsceneIdx++;
+  if (cutsceneIdx >= CUTSCENE_LINES.length){ endCutscene(); return; }
+  cutsceneTextEl.textContent = CUTSCENE_LINES[cutsceneIdx];
+}
+function skipCutscene(){
+  if (appState !== 'cutscene') return;
+  endCutscene();
+}
+function endCutscene(){
+  cutsceneEl.classList.add('fade-out');
+  setTimeout(() => {
+    cutsceneEl.classList.add('hidden');
+    enterGameplay();
+  }, 650);
+}
+function enterGameplay(){
+  appState = 'playing';
+  document.getElementById('game-root').classList.remove('hidden');
+  resize(); // canvas was hidden (0-layout in some browsers) — recompute size now that it's visible
+  if (!gameLoopStarted){
+    gameLoopStarted = true;
+    requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
+    setTimeout(() => {
+      showToast('Lost Library', 'explore as estantes e encontre o que foi perdido.');
+    }, 500);
+  }
+}
+
+/* ---------------------------------------------------------------------
    12. START
 --------------------------------------------------------------------- */
 (async function start(){
@@ -753,12 +850,7 @@ function loop(t){
   }
   bootScreen.classList.add('fade-out');
   setTimeout(()=> bootScreen.remove(), 900);
-
-  setTimeout(() => {
-    showToast('Lost Library', 'explore as estantes e encontre o que foi perdido.');
-  }, 900);
-
-  requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
+  setTimeout(() => enterChapterSelect(), 700);
 })();
 
 })();
