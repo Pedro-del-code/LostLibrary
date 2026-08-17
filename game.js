@@ -452,7 +452,7 @@ function onInventoryToggle(){
    7. PLAYER
 --------------------------------------------------------------------- */
 const Player = {
-  x: FLOWERBED.cx, y: FLOWERBED.cy + 25,
+  x: FLOWERBED.cx, y: FLOWERBED.cy + 78, // just in FRONT of the flower bed (z-order), not behind it
   w: 34, h: 20,          // collision box (feet area, small)
   speed: 190,
   dir: 'down',
@@ -618,11 +618,8 @@ function drawFloor(){
       ctx.drawImage(img, x, y, TILE, TILE);
     }
   }
-  // soft mortar-line vignette between tiles (very subtle, the art already has texture)
-  ctx.strokeStyle = COLORS.floorMortar;
-  ctx.lineWidth = 1;
-  for (let x=0; x<=WORLD.w; x+=TILE){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD.h); ctx.stroke(); }
-  for (let y=0; y<=WORLD.h; y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD.w,y); ctx.stroke(); }
+  // (no extra grid-line strokes here anymore — the stone art already reads as
+  // tiled on its own, and a drawn-on grid line was creating a visible seam)
 }
 
 function drawBackWall(){
@@ -644,20 +641,22 @@ function drawBackWall(){
 
 function drawCeilingLight(t){
   // soft vertical shaft connecting the opening above to the flowers below —
-  // drawn UNDER the sprites, like the light beam from the cutscene.
+  // drawn UNDER the sprites, like the light beam from the cutscene. Blurred
+  // so it reads as a glow rather than a flat, hard-edged shape.
   const x0 = CEILING_OPENING.cx, y0 = CEILING_OPENING.cy + 20;
   const x1 = FLOWERBED.cx, y1 = FLOWERBED.cy;
   const sway = Math.sin(t*0.4) * 14;
   const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-  grad.addColorStop(0, 'rgba(226,232,255,.30)');
-  grad.addColorStop(1, 'rgba(226,232,255,.03)');
+  grad.addColorStop(0, 'rgba(226,232,255,.26)');
+  grad.addColorStop(1, 'rgba(226,232,255,0)');
   ctx.save();
+  ctx.filter = 'blur(16px)';
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.moveTo(x0-46+sway*0.3, y0);
-  ctx.lineTo(x0+46+sway*0.3, y0);
-  ctx.lineTo(x1+150+sway, y1);
-  ctx.lineTo(x1-150+sway, y1);
+  ctx.moveTo(x0-40+sway*0.3, y0);
+  ctx.lineTo(x0+40+sway*0.3, y0);
+  ctx.lineTo(x1+130+sway, y1);
+  ctx.lineTo(x1-130+sway, y1);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
