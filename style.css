@@ -1,6 +1,6 @@
 /* ============================================================
    LOST LIBRARY — visual identity
-   palette: void #0c0906 · shelf-wood #241811 · aged-oak #4a3520
+   palette: void #0c0906 · pillar-stone #241811 · aged-oak #4a3520
             candle-gold #d8ab5c · sage #7f9a72 · parchment #ece0c4
    display: Cinzel Decorative (carved, ceremonial)
    body/ui: Spectral (old-book serif)
@@ -9,7 +9,7 @@
 
 :root{
   --void: #0c0906;
-  --shelf: #241811;
+  --shelf: #241811; /* legacy name, now used for pillar stone tone */
   --oak: #4a3520;
   --oak-light: #6b4d2c;
   --gold: #d8ab5c;

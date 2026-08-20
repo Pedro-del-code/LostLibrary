@@ -21,20 +21,19 @@ const ASSETS = { atlas: null, manifest: null, tiles: {} };
 
 // Ruins tile set — hand-painted sprites (processed: background removed, trimmed)
 const TILE_FILES = {
-  pisoA: 'piso_pedra_a.png', pisoB: 'piso_pedra_b.png',
-  coluna1: 'coluna_1.png', coluna2: 'coluna_2.png', coluna3: 'coluna_3.png',
-  canteiroBase: 'canteiro_base.png', canteiroGlow: 'canteiro_glow.png',
-  aberturaTeto: 'abertura_teto.png',
-  vinhaA: 'vinha_a.png', vinhaB: 'vinha_b.png',
-  entulho1: 'entulho_1.png', entulho2: 'entulho_2.png',
-  raizes1: 'raizes_1.png', raizes2: 'raizes_2.png',
-  arco: 'arco_passagem.png',
-  savePoint: 'save_point.png',
-  paredeFundo: 'parede_fundo.png',
-  florBush1: 'flor_bush_1.png', florBush2: 'flor_bush_2.png', florBush3: 'flor_bush_3.png',
-  florSmall: 'flor_small.png',
-  florBushWide1: 'flor_bush_wide_1.png', florBushWide2: 'flor_bush_wide_2.png',
-  florScatter: 'flor_scatter.png',
+  pillar: 'sky_pillar.png',
+  floorA: 'sky_floor_a.png', floorB: 'sky_floor_b.png',
+  wallBrick: 'sky_wall_brick.png',
+  archway: 'sky_archway.png',
+  tree: 'sky_tree.png',
+  banner: 'sky_banner.png',
+  crystalCluster: 'sky_crystal_cluster.png',
+  urn1: 'sky_urn1.png', urn2: 'sky_urn2.png',
+  web: 'sky_web.png',
+  flower1: 'sky_flower1.png', flower2: 'sky_flower2.png',
+  mush1: 'sky_mush1.png', mush2: 'sky_mush2.png', mush3: 'sky_mush3.png',
+  sitFigure: 'sky_sit_figure.png', hoodFigure: 'sky_hood_figure.png',
+  crystal1: 'sky_crystal1.png', crystal2: 'sky_crystal2.png',
 };
 
 function loadImage(src){
@@ -103,65 +102,69 @@ resize();
 
 /* ---------------------------------------------------------------------
    2. WORLD DEFINITION  — the chamber where she fell.
-      A small, contained ruin: a hole far above, a bed of flowers that broke
-      her fall, and stone columns older than anything with a name for them.
+      A small, contained sanctuary among the stars: a hole far above, a bed
+      of flowers and crystal that broke her fall, columns of pale stone.
 --------------------------------------------------------------------- */
 const WORLD = { w: 900, h: 680 };
 const ROOM_CENTER = { x: WORLD.w/2, y: 430 };
 
-// scale factor applied to the raw column art (native ~107x299) so it reads as
-// monumental but doesn't overwhelm this small room
-const PILLAR_SCALE = 0.62;
-const PILLAR_SPRITES = { 1:'coluna1', 2:'coluna2', 3:'coluna3' };
+const PILLAR_SCALE = 2.3;
 
 // Columns: {cx,cy} = bottom-center anchor point. Collision is a small footprint
 // box under the base — tall art, but you can walk in front of/behind it (y-sorted).
 const PILLARS = [];
 (function buildPillars(){
   const defs = [
-    {cx:150, cy:270, variant:1, vine:false},
-    {cx:750, cy:270, variant:2, vine:true},
-    {cx: 95, cy:480, variant:2, vine:false},
-    {cx:805, cy:480, variant:3, vine:true},
-    {cx:230, cy:640, variant:3, vine:false},
-    {cx:670, cy:640, variant:1, vine:false},
+    {cx:150, cy:255},
+    {cx:750, cy:255},
+    {cx: 90, cy:470},
+    {cx:810, cy:470},
+    {cx:230, cy:635},
+    {cx:670, cy:635},
   ];
-  defs.forEach((d,i) => {
-    const img = null; // resolved at draw time from ASSETS.tiles
-    PILLARS.push({ id:'pillar'+i, ...d });
-  });
+  defs.forEach((d,i) => PILLARS.push({ id:'pillar'+i, ...d }));
 })();
 
-// the flower bed that broke her fall — the heart of the room
-const FLOWERBED = { cx: ROOM_CENTER.x, cy: ROOM_CENTER.y, scale: 0.86 };
+// the bed of flowers and crystal that broke her fall — the heart of the room
+const FLOWERBED = { cx: ROOM_CENTER.x, cy: ROOM_CENTER.y, scale: 1 };
 
-// the hole in the ceiling, far above, with a shaft of light connecting it to the flowers
-const CEILING_OPENING = { cx: ROOM_CENTER.x, cy: 128, scale: 0.72 };
+// the hole in the ceiling, far above — just the light for now, no ring sprite
+const CEILING_OPENING = { cx: ROOM_CENTER.x, cy: 100, scale: 1 };
 
-// a quiet save point beside the flowers
-const SAVE_POINT = { cx: ROOM_CENTER.x + 165, cy: ROOM_CENTER.y + 25, scale: 0.6 };
+// a quiet, glowing crystal beside the flowers — the closest thing this room has to a save point
+const SAVE_POINT = { cx: ROOM_CENTER.x + 165, cy: ROOM_CENTER.y + 15, scale: 1.7 };
 
-// the archway south of the room — the only way further in (more of the ruins
-// arrive in a later update; for now this just marks that the room continues)
-const ARCHWAY = { cx: ROOM_CENTER.x, cy: 655, scale: 0.85 };
+// the archway south of the room — the only way further in (more of the map
+// arrives in a later update; for now this just marks that the room continues)
+const ARCHWAY = { cx: ROOM_CENTER.x, cy: 650, scale: 1.15 };
 
 // purely decorative scatter
 const RUBBLE = [
-  { cx:230, cy:330, sprite:'entulho1', scale:0.55 },
-  { cx:700, cy:360, sprite:'entulho2', scale:0.6 },
-  { cx:330, cy:600, sprite:'entulho2', scale:0.5 },
+  { cx:230, cy:330, sprite:'urn1', scale:1.5 },
+  { cx:700, cy:360, sprite:'urn2', scale:1.5 },
+  { cx:330, cy:600, sprite:'urn1', scale:1.3 },
 ];
 const ROOTS = [
-  { cx:130, cy:590, sprite:'raizes1', scale:0.6 },
-  { cx:770, cy:600, sprite:'raizes2', scale:0.6 },
+  { cx:130, cy:590, sprite:'web', scale:1.5 },
+  { cx:770, cy:600, sprite:'web', scale:1.5 },
 ];
 const GROUND_FLOWERS = [
-  { cx: ROOM_CENTER.x-150, cy: ROOM_CENTER.y+55, sprite:'florBush1', scale:0.55 },
-  { cx: ROOM_CENTER.x+140, cy: ROOM_CENTER.y+60, sprite:'florBush2', scale:0.55 },
-  { cx: ROOM_CENTER.x-95, cy: ROOM_CENTER.y-70, sprite:'florSmall', scale:0.6 },
-  { cx: ROOM_CENTER.x+95, cy: ROOM_CENTER.y-75, sprite:'florScatter', scale:0.5 },
-  { cx: ROOM_CENTER.x-40, cy: ROOM_CENTER.y+95, sprite:'florBush3', scale:0.5 },
+  { cx: ROOM_CENTER.x-150, cy: ROOM_CENTER.y+55, sprite:'flower1', scale:1.6 },
+  { cx: ROOM_CENTER.x+140, cy: ROOM_CENTER.y+60, sprite:'flower2', scale:1.6 },
+  { cx: ROOM_CENTER.x-95, cy: ROOM_CENTER.y-70, sprite:'mush1', scale:1.3 },
+  { cx: ROOM_CENTER.x+95, cy: ROOM_CENTER.y-75, sprite:'mush2', scale:1.3 },
+  { cx: ROOM_CENTER.x-40, cy: ROOM_CENTER.y+95, sprite:'mush3', scale:1.4 },
 ];
+// small mysterious statues tucked near the pillars, and a banner by the archway
+const STATUES = [
+  { cx:150, cy:330, sprite:'sitFigure', scale:1.7 },
+  { cx:750, cy:330, sprite:'hoodFigure', scale:1.7 },
+];
+const BANNERS = [
+  { cx: ARCHWAY.cx-95, cy: ARCHWAY.cy-140, scale:1.1 },
+  { cx: ARCHWAY.cx+95, cy: ARCHWAY.cy-140, scale:1.1 },
+];
+const TREE_DECOR = { cx: 110, cy: 640, scale: 1.35 };
 
 /* ---------------------------------------------------------------------
    3. ITEM DATABASE + INTERACTABLES
@@ -192,9 +195,9 @@ const ITEM_DB = {
 // this is just the small chamber where she landed.
 const INTERACTABLES = [
   { id:'roots_item', x:ROOTS[0].cx, y:ROOTS[0].cy-20, r:65, type:'item', itemId:'chave_antiga',
-    prompt:'raízes retorcidas', found:false },
+    prompt:'teia antiga', found:false },
   { id:'rubble_item', x:RUBBLE[0].cx, y:RUBBLE[0].cy-10, r:60, type:'item', itemId:'espada_enferrujada',
-    prompt:'monte de escombros', found:false },
+    prompt:'urna quebrada', found:false },
   { id:'flowerbed_item', x:FLOWERBED.cx, y:FLOWERBED.cy-10, r:75, type:'item', itemId:'vela_eterna',
     prompt:'canteiro de flores', found:false },
   { id:'ghost', x:ARCHWAY.cx, y:ARCHWAY.cy-60, r:80, type:'npc',
@@ -202,8 +205,8 @@ const INTERACTABLES = [
     lines:[
       'Uma sombra junto ao arco se vira lentamente para você.',
       '"Ah... um visitante. Faz tanto tempo desde o último."',
-      '"Você caiu bem no meio das flores. Elas amorteceram, dessa vez."',
-      '"Além desse arco, as ruínas continuam. Mas isso... é para depois."',
+      '"Você caiu bem no meio das flores e do cristal. Eles amorteceram, dessa vez."',
+      '"Além desse arco, o céu continua. Mas isso... é para depois."',
     ]},
 ];
 
@@ -609,8 +612,8 @@ function drawSprite(img, cx, cy, scale, anchorCenter){
 }
 
 function drawFloor(){
-  const a = tile('pisoA'), b = tile('pisoB');
-  if (!a || !b){ ctx.fillStyle = '#1c1728'; ctx.fillRect(0,0,WORLD.w,WORLD.h); return; }
+  const a = tile('floorA'), b = tile('floorB');
+  if (!a || !b){ ctx.fillStyle = '#242049'; ctx.fillRect(0,0,WORLD.w,WORLD.h); return; }
   const TILE = 84;
   for (let y=0; y<WORLD.h; y+=TILE){
     for (let x=0; x<WORLD.w; x+=TILE){
@@ -618,12 +621,10 @@ function drawFloor(){
       ctx.drawImage(img, x, y, TILE, TILE);
     }
   }
-  // (no extra grid-line strokes here anymore — the stone art already reads as
-  // tiled on its own, and a drawn-on grid line was creating a visible seam)
 }
 
 function drawBackWall(){
-  const w = tile('paredeFundo');
+  const w = tile('wallBrick');
   if (!w) return;
   const stripH = 150;
   const scale = stripH / w.height;
@@ -640,14 +641,13 @@ function drawBackWall(){
 }
 
 function drawCeilingLight(t){
-  // soft vertical shaft connecting the opening above to the flowers below —
-  // drawn UNDER the sprites, like the light beam from the cutscene. Blurred
-  // so it reads as a glow rather than a flat, hard-edged shape.
+  // soft vertical shaft from the (sprite-less) hole above down to the flowers —
+  // blurred so it reads as a glow rather than a flat, hard-edged shape.
   const x0 = CEILING_OPENING.cx, y0 = CEILING_OPENING.cy + 20;
   const x1 = FLOWERBED.cx, y1 = FLOWERBED.cy;
   const sway = Math.sin(t*0.4) * 14;
   const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-  grad.addColorStop(0, 'rgba(226,232,255,.26)');
+  grad.addColorStop(0, 'rgba(226,232,255,.30)');
   grad.addColorStop(1, 'rgba(226,232,255,0)');
   ctx.save();
   ctx.filter = 'blur(16px)';
@@ -660,16 +660,22 @@ function drawCeilingLight(t){
   ctx.closePath();
   ctx.fill();
   ctx.restore();
-}
-
-function drawCeilingOpening(){
-  drawSprite(tile('aberturaTeto'), CEILING_OPENING.cx, CEILING_OPENING.cy, CEILING_OPENING.scale, true);
+  // a small cluster of stars around the opening itself
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (let i=0;i<5;i++){
+    const a2 = i*1.3 + t*0.2;
+    const rx = x0 + Math.cos(a2)*40, ry = (CEILING_OPENING.cy-10) + Math.sin(a2)*14;
+    const s = 1.5 + Math.sin(t*3+i)*0.8;
+    ctx.globalAlpha = 0.5 + Math.sin(t*2+i)*0.3;
+    ctx.fillRect(rx-s/2, ry-s/2, s, s);
+  }
+  ctx.restore();
 }
 
 function drawPillar(p){
-  const img = tile(PILLAR_SPRITES[p.variant]);
+  const img = tile('pillar');
   if (!img) return;
-  // contact shadow
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,.35)';
   ctx.beginPath();
@@ -677,15 +683,33 @@ function drawPillar(p){
   ctx.fill();
   ctx.restore();
   drawSprite(img, p.cx, p.cy, PILLAR_SCALE);
-  if (p.vine){
-    const vineImg = tile(p.variant % 2 === 0 ? 'vinhaA' : 'vinhaB');
-    const vw = img.width*PILLAR_SCALE, vh = img.height*PILLAR_SCALE;
-    drawSprite(vineImg, p.cx + vw*0.22, p.cy - vh*0.62, PILLAR_SCALE*0.85);
-  }
+}
+
+function drawStatue(s){ drawSprite(tile(s.sprite), s.cx, s.cy, s.scale); }
+
+function drawBanner(b){
+  const img = tile('banner');
+  if (!img) return;
+  const w = img.width*b.scale, h = img.height*b.scale;
+  ctx.drawImage(img, b.cx - w/2, b.cy, w, h); // top-anchored: hangs down from cy
+}
+
+function drawTreeDecor(){
+  const img = tile('tree');
+  if (!img) return;
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  drawSprite(img, TREE_DECOR.cx, TREE_DECOR.cy, TREE_DECOR.scale);
+  ctx.restore();
 }
 
 function drawFlowerbed(){
-  drawSprite(tile('canteiroGlow'), FLOWERBED.cx, FLOWERBED.cy + 30, FLOWERBED.scale);
+  // a cluster of flowers and a crystal outcrop, since this set doesn't have
+  // one single "bed" sprite — grouped tightly around the landing spot.
+  drawSprite(tile('flower1'), FLOWERBED.cx-55, FLOWERBED.cy+25, 1.7);
+  drawSprite(tile('flower2'), FLOWERBED.cx+50, FLOWERBED.cy+28, 1.7);
+  drawSprite(tile('crystalCluster'), FLOWERBED.cx, FLOWERBED.cy+35, 1.5);
+  drawSprite(tile('mush1'), FLOWERBED.cx-15, FLOWERBED.cy+45, 1.1);
 }
 
 function drawArchway(){
@@ -695,7 +719,7 @@ function drawArchway(){
   ctx.ellipse(ARCHWAY.cx, ARCHWAY.cy+4, 60, 12, 0, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
-  drawSprite(tile('arco'), ARCHWAY.cx, ARCHWAY.cy, ARCHWAY.scale);
+  drawSprite(tile('archway'), ARCHWAY.cx, ARCHWAY.cy, ARCHWAY.scale);
 }
 
 function drawRubble(r){ drawSprite(tile(r.sprite), r.cx, r.cy, r.scale); }
@@ -703,12 +727,18 @@ function drawRoots(r){ drawSprite(tile(r.sprite), r.cx, r.cy, r.scale); }
 function drawGroundFlower(f){ drawSprite(tile(f.sprite), f.cx, f.cy, f.scale); }
 
 function drawSavePoint(t){
-  const img = tile('savePoint');
+  const img = tile('crystal2');
   if (!img) return;
   const pulse = 0.85 + Math.sin(t*2.4)*0.15;
+  const bobY = Math.sin(t*1.6)*3;
   ctx.save();
+  const grad = ctx.createRadialGradient(SAVE_POINT.cx,SAVE_POINT.cy-20,2, SAVE_POINT.cx,SAVE_POINT.cy-20,46*pulse);
+  grad.addColorStop(0, `rgba(180,210,255,${0.4*pulse})`);
+  grad.addColorStop(1, 'rgba(180,210,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(SAVE_POINT.cx,SAVE_POINT.cy-20,46*pulse,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha = pulse;
-  drawSprite(img, SAVE_POINT.cx, SAVE_POINT.cy, SAVE_POINT.scale);
+  drawSprite(img, SAVE_POINT.cx, SAVE_POINT.cy+bobY, SAVE_POINT.scale);
   ctx.restore();
 }
 
@@ -772,6 +802,9 @@ function render(){
   // player correctly passes in front of / behind columns and props.
   const drawables = [];
   PILLARS.forEach(p => drawables.push({ y: p.cy, draw: () => drawPillar(p) }));
+  STATUES.forEach(s => drawables.push({ y: s.cy, draw: () => drawStatue(s) }));
+  BANNERS.forEach(b => drawables.push({ y: b.cy, draw: () => drawBanner(b) }));
+  drawables.push({ y: TREE_DECOR.cy, draw: drawTreeDecor });
   RUBBLE.forEach(r => drawables.push({ y: r.cy, draw: () => drawRubble(r) }));
   ROOTS.forEach(r => drawables.push({ y: r.cy, draw: () => drawRoots(r) }));
   GROUND_FLOWERS.forEach(f => drawables.push({ y: f.cy, draw: () => drawGroundFlower(f) }));
@@ -782,8 +815,6 @@ function render(){
 
   drawables.sort((a,b)=> a.y - b.y);
   drawables.forEach(d => d.draw());
-
-  drawCeilingOpening();
 
   INTERACTABLES.forEach(it => drawInteractPrompt(it, clock));
 
