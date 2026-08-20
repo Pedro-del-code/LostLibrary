@@ -40,9 +40,26 @@ function loadImage(src){
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error(`falha ao carregar imagem: ${src}`));
     img.src = src;
   });
+}
+
+async function fetchJSON(src){
+  let resp;
+  try {
+    resp = await fetch(src);
+  } catch (e){
+    throw new Error(`falha de rede ao buscar: ${src} (${e.message})`);
+  }
+  if (!resp.ok){
+    throw new Error(`HTTP ${resp.status} ao buscar: ${src}`);
+  }
+  try {
+    return await resp.json();
+  } catch (e){
+    throw new Error(`resposta não é JSON válido: ${src} (o servidor provavelmente devolveu HTML/erro no lugar do arquivo)`);
+  }
 }
 
 async function loadAssets(){
@@ -50,17 +67,10 @@ async function loadAssets(){
   // browsers/CDNs that cached an older build always fetch the new files.
   const ASSET_VERSION = 'v6';
   setBoot(10, 'abrindo os arquivos antigos…');
-  const manifestResp = await fetch(`assets/sprites/player_manifest.json?${ASSET_VERSION}`);
-  ASSETS.manifest = await manifestResp.json();
+  ASSETS.manifest = await fetchJSON(`assets/sprites/player_manifest.json?${ASSET_VERSION}`);
   setBoot(30, 'acendendo as velas…');
 
-  await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = `assets/sprites/player_atlas.png?${ASSET_VERSION}`;
-    ASSETS.atlas = img;
-  });
+  ASSETS.atlas = await loadImage(`assets/sprites/player_atlas.png?${ASSET_VERSION}`);
   setBoot(55, 'esculpindo as colunas…');
 
   const tileEntries = Object.entries(TILE_FILES);
@@ -949,7 +959,11 @@ function enterGameplay(){
   try{
     await loadAssets();
   } catch(err){
-    bootHint.textContent = 'erro ao carregar os arquivos da biblioteca…';
+    // show the ACTUAL failure (which file/URL, what kind of error) right on
+    // screen — that's the fastest way to pinpoint a bad deploy without needing
+    // to dig through devtools on a phone.
+    bootHint.textContent = err && err.message ? err.message : 'erro desconhecido ao carregar os arquivos.';
+    bootHint.style.wordBreak = 'break-all';
     console.error(err);
     return;
   }
